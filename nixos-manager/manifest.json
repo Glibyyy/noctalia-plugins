@@ -1,0 +1,25 @@
+{
+  "id": "nixos-manager",
+  "name": "NixOS Manager",
+  "version": "1.0.0",
+  "minNoctaliaVersion": "4.0.0",
+  "author": "gliby",
+  "license": "MIT",
+  "description": "NixOS rebuild, garbage collection, git operations, and repo monitoring from the bar. Replaces nixos-update, nixos-gc, and git-push dmenu scripts.",
+  "tags": ["Bar", "Panel"],
+  "entryPoints": {
+    "main": "Main.qml",
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "dependencies": {
+    "plugins": []
+  },
+  "metadata": {
+    "defaultSettings": {
+      "flakeDir": "~/nixos-config",
+      "refreshInterval": 60000,
+      "terminalCommand": "kitty"
+    }
+  }
+}

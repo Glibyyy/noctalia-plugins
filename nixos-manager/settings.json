@@ -1,0 +1,5 @@
+{
+  "flakeDir": "~/nixos-config",
+  "refreshInterval": 60000,
+  "terminalCommand": "kitty"
+}
