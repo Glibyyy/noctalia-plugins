@@ -13,13 +13,12 @@ CURRENT_GEN=$(sudo nix-env --list-generations --profile /nix/var/nix/profiles/sy
   | grep '(current)' | awk '{print $1}') || CURRENT_GEN="?"
 GEN_DATE=$(sudo nix-env --list-generations --profile /nix/var/nix/profiles/system 2>/dev/null \
   | grep '(current)' | awk '{print $2, $3}') || GEN_DATE=""
-HOSTNAME=$(hostname 2>/dev/null || echo "unknown")
+QS_HOSTNAME=$(hostname 2>/dev/null || echo "unknown")
 KERNEL=$(uname -r 2>/dev/null || echo "unknown")
-STORE_PATH=$(readlink -f /nix/var/nix/profiles/system 2>/dev/null || echo "")
 
 # ── Git repo status ───────────────────────────────────────────────
 GIT_BRANCH=""
-GIT_DIRTY="false"
+GIT_DIRTY=false
 GIT_DIRTY_COUNT=0
 GIT_AHEAD=0
 GIT_BEHIND=0
@@ -30,14 +29,12 @@ if [ -d "$FLAKE_DIR/.git" ]; then
   cd "$FLAKE_DIR"
   GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
-  # Dirty files
   DIRTY_FILES=$(git status --porcelain 2>/dev/null || echo "")
   if [ -n "$DIRTY_FILES" ]; then
-    GIT_DIRTY="true"
+    GIT_DIRTY=true
     GIT_DIRTY_COUNT=$(echo "$DIRTY_FILES" | wc -l)
   fi
 
-  # Ahead/behind remote (fetch first, quick dry-run)
   git fetch --quiet 2>/dev/null || true
   UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
   if [ -n "$UPSTREAM" ]; then
@@ -52,26 +49,31 @@ fi
 # ── Store size ────────────────────────────────────────────────────
 STORE_SIZE=$(du -sh /nix/store 2>/dev/null | awk '{print $1}') || STORE_SIZE="?"
 
-# ── Output JSON ───────────────────────────────────────────────────
+# ── Output JSON via Python (handles all quoting safely) ───────────
+export _QS_HOSTNAME="$QS_HOSTNAME" _QS_GEN="$CURRENT_GEN" _QS_GEN_DATE="$GEN_DATE"
+export _QS_KERNEL="$KERNEL" _QS_STORE_SIZE="$STORE_SIZE"
+export _QS_BRANCH="$GIT_BRANCH" _QS_DIRTY="$GIT_DIRTY" _QS_DIRTY_COUNT="$GIT_DIRTY_COUNT"
+export _QS_AHEAD="$GIT_AHEAD" _QS_BEHIND="$GIT_BEHIND"
+export _QS_LAST_COMMIT="$GIT_LAST_COMMIT" _QS_LAST_MSG="$GIT_LAST_MSG"
+
 python3 -c "
-import json
+import json, os
 print(json.dumps({
     'system': {
-        'hostname': '$HOSTNAME',
-        'generation': '$CURRENT_GEN',
-        'genDate': '$GEN_DATE',
-        'kernel': '$KERNEL',
-        'storePath': '$STORE_PATH',
-        'storeSize': '$STORE_SIZE'
+        'hostname': os.environ['_QS_HOSTNAME'],
+        'generation': os.environ['_QS_GEN'],
+        'genDate': os.environ['_QS_GEN_DATE'],
+        'kernel': os.environ['_QS_KERNEL'],
+        'storeSize': os.environ['_QS_STORE_SIZE']
     },
     'repo': {
-        'branch': '$GIT_BRANCH',
-        'dirty': $GIT_DIRTY,
-        'dirtyCount': $GIT_DIRTY_COUNT,
-        'ahead': $GIT_AHEAD,
-        'behind': $GIT_BEHIND,
-        'lastCommit': '$GIT_LAST_COMMIT',
-        'lastMsg': $(json.dumps('$GIT_LAST_MSG'))
+        'branch': os.environ['_QS_BRANCH'],
+        'dirty': os.environ['_QS_DIRTY'] == 'true',
+        'dirtyCount': int(os.environ['_QS_DIRTY_COUNT']),
+        'ahead': int(os.environ['_QS_AHEAD']),
+        'behind': int(os.environ['_QS_BEHIND']),
+        'lastCommit': os.environ['_QS_LAST_COMMIT'],
+        'lastMsg': os.environ['_QS_LAST_MSG']
     }
 }))
 "
