@@ -175,7 +175,7 @@ Item {
             Layout.fillWidth: true
           }
 
-          // Pull button (when behind)
+          // Pull/Push buttons (only when needed)
           NButton {
             Layout.fillWidth: true
             visible: (root.repoInfo?.behind ?? 0) > 0
@@ -184,6 +184,17 @@ Item {
             enabled: !root.isRunning
             onClicked: {
               if (mainInstance) mainInstance.runActionSilent("git-pull")
+            }
+          }
+
+          NButton {
+            Layout.fillWidth: true
+            visible: (root.repoInfo?.ahead ?? 0) > 0
+            text: "Push " + (root.repoInfo?.ahead ?? 0) + " commit(s)"
+            icon: "send"
+            enabled: !root.isRunning
+            onClicked: {
+              if (mainInstance) mainInstance.runActionSilent("git-push")
             }
           }
 
@@ -281,15 +292,6 @@ Item {
                   root.commitMsg = ""
                   commitMsgInput.text = ""
                 }
-              }
-            }
-
-            NButton {
-              text: "Push"
-              icon: "git-branch"
-              enabled: !root.isRunning && (root.repoInfo?.ahead ?? 0) > 0
-              onClicked: {
-                if (mainInstance) mainInstance.runActionSilent("git-push")
               }
             }
 
