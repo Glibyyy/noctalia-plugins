@@ -4,6 +4,7 @@
 # Actions: rebuild, gc, git-pull, git-push, git-commit
 
 set -euo pipefail
+trap 'echo ""; read -n 1 -s -r -p "Press any key to close..."' EXIT
 
 ACTION="${1:?Usage: action.sh rebuild|gc|git-pull|git-push|git-commit [args...]}"
 shift
@@ -89,10 +90,9 @@ case "$ACTION" in
         ;;
     esac
 
-    STORE_SIZE=$(du -sh /nix/store 2>/dev/null | awk '{print $1}')
     echo ""
     echo "══════════════════════════════════════════════"
-    echo "  Done — store size: $STORE_SIZE"
+    echo "  Done"
     echo "══════════════════════════════════════════════"
     ;;
 
