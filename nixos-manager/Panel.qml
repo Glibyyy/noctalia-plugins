@@ -55,10 +55,10 @@ Item {
             Layout.fillWidth: true
             spacing: Style.marginS
 
-            NIcon {
-              icon: "snowflake"
+            NixOSIcon {
               pointSize: Style.fontSizeL
-              color: Color.mPrimary
+              applyUiScale: false
+              iconColor: Color.mPrimary
             }
 
             ColumnLayout {

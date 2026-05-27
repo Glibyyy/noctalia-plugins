@@ -16,7 +16,6 @@ Item {
   property int sectionWidgetsCount: 0
 
   readonly property var mainInstance: pluginApi?.mainInstance
-  readonly property string genNumber: mainInstance?.genNumber ?? "?"
   readonly property string barStatus: mainInstance?.barStatus ?? "clean"
 
   readonly property color statusColor: {
@@ -25,7 +24,7 @@ Item {
     return Color.mPrimary
   }
 
-  readonly property real contentWidth: contentRow.implicitWidth + Style.marginM * 2
+  readonly property real contentWidth: Style.capsuleHeight
   readonly property real contentHeight: Style.capsuleHeight
 
   implicitWidth: contentWidth
@@ -39,41 +38,11 @@ Item {
     color: mouseArea.containsMouse ? Color.mHover : Style.capsuleColor
     radius: Style.radiusL
 
-    RowLayout {
-      id: contentRow
+    NixOSIcon {
       anchors.centerIn: parent
-      spacing: Style.marginS
-
-      NIcon {
-        icon: "snowflake"
-        pointSize: Style.fontSizeL
-        color: root.statusColor
-      }
-
-      NText {
-        text: "G" + root.genNumber
-        pointSize: Style.fontSizeS
-        font.weight: Style.fontWeightBold
-        color: mouseArea.containsMouse ? Color.mOnHover : Color.mOnSurface
-        font.family: Settings.data.ui.fontFixed
-      }
-
-      // Behind indicator
-      NText {
-        visible: root.barStatus === "behind"
-        text: "\u2193"
-        pointSize: Style.fontSizeS
-        color: "#F59E0B"
-      }
-
-      // Dirty indicator
-      Rectangle {
-        visible: root.barStatus === "dirty"
-        width: 6
-        height: 6
-        radius: 3
-        color: Color.mTertiary
-      }
+      pointSize: Style.fontSizeL
+      applyUiScale: false
+      iconColor: mouseArea.containsMouse ? Color.mOnHover : root.statusColor
     }
   }
 
