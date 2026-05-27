@@ -1,0 +1,6 @@
+{
+  "stopCode": "21477",
+  "lines": ["32", "33", "54"],
+  "refreshInterval": 30000,
+  "compactMode": true
+}
