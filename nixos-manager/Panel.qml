@@ -269,9 +269,10 @@ Item {
 
           Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06) }
 
-          // ── Git ─────────────────────────────────────
+          // ── Git (only when dirty) ─────────────────
           NTextInput {
             id: commitMsgInput
+            visible: root.repoInfo?.dirty ?? false
             Layout.fillWidth: true
             placeholderText: "Commit message..."
             text: root.commitMsg
@@ -279,13 +280,14 @@ Item {
           }
 
           RowLayout {
+            visible: root.repoInfo?.dirty ?? false
             Layout.fillWidth: true
             spacing: Style.marginS
 
             NButton {
               text: "Commit"
               icon: "git-commit"
-              enabled: !root.isRunning && root.commitMsg.trim() !== "" && (root.repoInfo?.dirty ?? false)
+              enabled: !root.isRunning && root.commitMsg.trim() !== ""
               onClicked: {
                 if (mainInstance) {
                   mainInstance.runActionSilent("git-commit", [root.commitMsg.trim()])
@@ -298,7 +300,7 @@ Item {
             NButton {
               text: "Commit & Push"
               icon: "send"
-              enabled: !root.isRunning && root.commitMsg.trim() !== "" && (root.repoInfo?.dirty ?? false)
+              enabled: !root.isRunning && root.commitMsg.trim() !== ""
               onClicked: {
                 if (mainInstance) {
                   mainInstance.runActionSilent("git-commit", [root.commitMsg.trim()])
