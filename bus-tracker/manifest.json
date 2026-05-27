@@ -1,11 +1,11 @@
 {
   "id": "bus-tracker",
   "name": "Bus Tracker",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "minNoctaliaVersion": "4.0.0",
   "author": "gliby",
   "license": "MIT",
-  "description": "Live bus arrival times for Israeli transit stops via curlbus API. Shows real-time ETAs with live/scheduled indicators.",
+  "description": "Live Israeli bus arrivals with dual-stop transfer analysis. Shows real-time ETAs, connection timing, and catchable transfers.",
   "tags": ["Bar", "Panel"],
   "entryPoints": {
     "main": "Main.qml",
@@ -18,10 +18,15 @@
   },
   "metadata": {
     "defaultSettings": {
-      "stopCode": "21477",
-      "lines": ["32", "33", "54"],
-      "refreshInterval": 30000,
-      "compactMode": true
+      "stop1": {
+        "code": "21477",
+        "lines": ["33", "32", "54"]
+      },
+      "stop2": {
+        "code": "21450",
+        "lines": ["32", "33", "42", "54", "525", "531", "621"]
+      },
+      "refreshInterval": 30000
     }
   }
 }

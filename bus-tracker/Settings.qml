@@ -9,14 +9,11 @@ ColumnLayout {
 
   property var pluginApi: null
 
-  property string editStopCode:
-    pluginApi?.pluginSettings?.stopCode || "21477"
-
-  property string editLines:
-    (pluginApi?.pluginSettings?.lines || ["32", "33", "54"]).join(", ")
-
-  property int editRefreshInterval:
-    pluginApi?.pluginSettings?.refreshInterval || 30000
+  property string editStop1Code: pluginApi?.pluginSettings?.stop1?.code || "21477"
+  property string editStop1Lines: (pluginApi?.pluginSettings?.stop1?.lines || ["33", "32", "54"]).join(", ")
+  property string editStop2Code: pluginApi?.pluginSettings?.stop2?.code || "21450"
+  property string editStop2Lines: (pluginApi?.pluginSettings?.stop2?.lines || ["32", "33", "42", "54", "525", "531", "621"]).join(", ")
+  property int editRefreshInterval: pluginApi?.pluginSettings?.refreshInterval || 30000
 
   spacing: Style.marginM
 
@@ -27,7 +24,7 @@ ColumnLayout {
   }
 
   NText {
-    text: "Live bus arrival times from curlbus.app"
+    text: "Dual-stop bus tracker with transfer analysis"
     color: Color.mSecondary
     Layout.fillWidth: true
     wrapMode: Text.Wrap
@@ -35,22 +32,42 @@ ColumnLayout {
 
   NDivider { Layout.fillWidth: true; Layout.topMargin: Style.marginM; Layout.bottomMargin: Style.marginM }
 
+  NLabel { label: "Stop 1 (Origin)"; description: "Your starting bus stop" }
+
   NTextInput {
     Layout.fillWidth: true
     label: "Stop Code"
-    description: "The bus stop number (e.g. 21477)"
     placeholderText: "21477"
-    text: root.editStopCode
-    onTextChanged: root.editStopCode = text
+    text: root.editStop1Code
+    onTextChanged: root.editStop1Code = text
   }
 
   NTextInput {
     Layout.fillWidth: true
     label: "Lines"
-    description: "Comma-separated line numbers (blank = all lines)"
-    placeholderText: "32, 33, 54"
-    text: root.editLines
-    onTextChanged: root.editLines = text
+    placeholderText: "33, 32, 54"
+    text: root.editStop1Lines
+    onTextChanged: root.editStop1Lines = text
+  }
+
+  NDivider { Layout.fillWidth: true; Layout.topMargin: Style.marginM; Layout.bottomMargin: Style.marginM }
+
+  NLabel { label: "Stop 2 (Transfer)"; description: "Where you transfer — shared lines are tracked for connections" }
+
+  NTextInput {
+    Layout.fillWidth: true
+    label: "Stop Code"
+    placeholderText: "21450"
+    text: root.editStop2Code
+    onTextChanged: root.editStop2Code = text
+  }
+
+  NTextInput {
+    Layout.fillWidth: true
+    label: "Lines"
+    placeholderText: "32, 33, 42, 54, 525, 531, 621"
+    text: root.editStop2Lines
+    onTextChanged: root.editStop2Lines = text
   }
 
   NDivider { Layout.fillWidth: true; Layout.topMargin: Style.marginM; Layout.bottomMargin: Style.marginM }
@@ -72,10 +89,11 @@ ColumnLayout {
   function saveSettings() {
     if (!pluginApi) return
 
-    var lineList = root.editLines.split(",").map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
+    var l1 = root.editStop1Lines.split(",").map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
+    var l2 = root.editStop2Lines.split(",").map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
 
-    pluginApi.pluginSettings.stopCode = root.editStopCode
-    pluginApi.pluginSettings.lines = lineList
+    pluginApi.pluginSettings.stop1 = { code: root.editStop1Code.trim(), lines: l1 }
+    pluginApi.pluginSettings.stop2 = { code: root.editStop2Code.trim(), lines: l2 }
     pluginApi.pluginSettings.refreshInterval = root.editRefreshInterval
 
     pluginApi.saveSettings()

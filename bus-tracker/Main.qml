@@ -20,23 +20,22 @@ Item {
   property int settingsVersion: 0
 
   // Settings
-  property string stopCode: pluginApi?.pluginSettings?.stopCode ?? "21477"
-  property var lines: pluginApi?.pluginSettings?.lines ?? ["32", "33", "54"]
+  property var stop1: pluginApi?.pluginSettings?.stop1 ?? { code: "21477", lines: ["33", "32", "54"] }
+  property var stop2: pluginApi?.pluginSettings?.stop2 ?? { code: "21450", lines: ["32", "33", "42", "54", "525", "531", "621"] }
   property int refreshInterval: pluginApi?.pluginSettings?.refreshInterval ?? 30000
-  property bool compactMode: pluginApi?.pluginSettings?.compactMode ?? true
 
   onSettingsVersionChanged: {
-    stopCode = pluginApi?.pluginSettings?.stopCode ?? "21477"
-    lines = pluginApi?.pluginSettings?.lines ?? ["32", "33", "54"]
+    stop1 = pluginApi?.pluginSettings?.stop1 ?? { code: "21477", lines: ["33", "32", "54"] }
+    stop2 = pluginApi?.pluginSettings?.stop2 ?? { code: "21450", lines: ["32", "33", "42", "54", "525", "531", "621"] }
     refreshInterval = pluginApi?.pluginSettings?.refreshInterval ?? 30000
-    compactMode = pluginApi?.pluginSettings?.compactMode ?? true
     updateTimer.interval = refreshInterval
     queryArrivals()
   }
 
   // State
-  property var busLines: []
-  property string stopName: ""
+  property var stopData1: null
+  property var stopData2: null
+  property var connections: []
   property bool isRefreshing: false
   property int nextEta: -1
 
@@ -50,8 +49,11 @@ Item {
 
   function queryArrivals() {
     root.isRefreshing = true
-    var lineFilter = lines.join(",")
-    queryProcess.command = ["bash", _queryScript, stopCode, lineFilter]
+    var s1 = stop1.code || ""
+    var l1 = (stop1.lines || []).join(",")
+    var s2 = stop2.code || ""
+    var l2 = (stop2.lines || []).join(",")
+    queryProcess.command = ["bash", _queryScript, s1, l1, s2, l2]
     queryProcess.running = true
   }
 
@@ -67,14 +69,19 @@ Item {
 
       try {
         var data = JSON.parse(output)
-        root.busLines = data.lines || []
-        root.stopName = data.stopName || ""
-        // Find earliest ETA across all lines
+        root.stopData1 = data.stop1 || null
+        root.stopData2 = data.stop2 || null
+        root.connections = data.connections || []
+
+        // Find earliest ETA across stop 1
         var earliest = -1
-        for (var i = 0; i < root.busLines.length; i++) {
-          var arrs = root.busLines[i].arrivals || []
-          if (arrs.length > 0 && (earliest === -1 || arrs[0].eta < earliest)) {
-            earliest = arrs[0].eta
+        if (root.stopData1) {
+          var lines = root.stopData1.lines || []
+          for (var i = 0; i < lines.length; i++) {
+            var arrs = lines[i].arrivals || []
+            if (arrs.length > 0 && (earliest === -1 || arrs[0].eta < earliest)) {
+              earliest = arrs[0].eta
+            }
           }
         }
         root.nextEta = earliest
@@ -102,8 +109,9 @@ Item {
 
     function status() {
       return {
-        "busLines": root.busLines,
-        "stopName": root.stopName,
+        "stop1": root.stopData1,
+        "stop2": root.stopData2,
+        "connections": root.connections,
         "nextEta": root.nextEta
       }
     }
