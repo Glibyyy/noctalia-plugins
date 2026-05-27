@@ -58,6 +58,7 @@ Item {
             NixOSIcon {
               pointSize: Style.fontSizeL
               applyUiScale: false
+              iconColor: Color.mPrimary
             }
 
             ColumnLayout {
