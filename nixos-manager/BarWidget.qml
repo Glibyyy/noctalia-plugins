@@ -42,7 +42,8 @@ Item {
       anchors.centerIn: parent
       pointSize: Style.fontSizeL
       applyUiScale: false
-      iconColor: mouseArea.containsMouse ? Color.mOnHover : root.statusColor
+      showStatus: root.barStatus !== "clean"
+      statusColor: root.statusColor
     }
   }
 
