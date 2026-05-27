@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # Query NixOS system state + git repo status.
 # Usage: query.sh <flake_dir>
-# Output: JSON with system info, repo status, generation info.
+# Output: JSON — no sudo needed, no slow commands.
 
 set -euo pipefail
 
 FLAKE_DIR="${1:-$HOME/nixos-config}"
 FLAKE_DIR="${FLAKE_DIR/#\~/$HOME}"
 
-# ── System info ───────────────────────────────────────────────────
-CURRENT_GEN=$(sudo nix-env --list-generations --profile /nix/var/nix/profiles/system 2>/dev/null \
-  | grep '(current)' | awk '{print $1}') || CURRENT_GEN="?"
-GEN_DATE=$(sudo nix-env --list-generations --profile /nix/var/nix/profiles/system 2>/dev/null \
-  | grep '(current)' | awk '{print $2, $3}') || GEN_DATE=""
+# ── System info (no sudo) ─────────────────────────────────────────
+CURRENT_GEN=$(readlink /nix/var/nix/profiles/system 2>/dev/null | grep -oP 'system-\K\d+') || CURRENT_GEN="?"
+GEN_DATE=$(stat -c '%y' /nix/var/nix/profiles/system 2>/dev/null | cut -d. -f1) || GEN_DATE=""
 QS_HOSTNAME=$(hostname 2>/dev/null || echo "unknown")
 KERNEL=$(uname -r 2>/dev/null || echo "unknown")
+# Fast store size: count generations instead of du
+GEN_COUNT=$(ls -1d /nix/var/nix/profiles/system-*-link 2>/dev/null | wc -l) || GEN_COUNT="?"
 
 # ── Git repo status ───────────────────────────────────────────────
 GIT_BRANCH=""
@@ -35,6 +35,7 @@ if [ -d "$FLAKE_DIR/.git" ]; then
     GIT_DIRTY_COUNT=$(echo "$DIRTY_FILES" | wc -l)
   fi
 
+  # Fetch remote (quick, for behind detection)
   git fetch --quiet 2>/dev/null || true
   UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
   if [ -n "$UPSTREAM" ]; then
@@ -46,12 +47,9 @@ if [ -d "$FLAKE_DIR/.git" ]; then
   GIT_LAST_MSG=$(git log -1 --format="%s" 2>/dev/null || echo "")
 fi
 
-# ── Store size ────────────────────────────────────────────────────
-STORE_SIZE=$(du -sh /nix/store 2>/dev/null | awk '{print $1}') || STORE_SIZE="?"
-
-# ── Output JSON via Python (handles all quoting safely) ───────────
+# ── Output JSON ───────────────────────────────────────────────────
 export _QS_HOSTNAME="$QS_HOSTNAME" _QS_GEN="$CURRENT_GEN" _QS_GEN_DATE="$GEN_DATE"
-export _QS_KERNEL="$KERNEL" _QS_STORE_SIZE="$STORE_SIZE"
+export _QS_KERNEL="$KERNEL" _QS_GEN_COUNT="$GEN_COUNT"
 export _QS_BRANCH="$GIT_BRANCH" _QS_DIRTY="$GIT_DIRTY" _QS_DIRTY_COUNT="$GIT_DIRTY_COUNT"
 export _QS_AHEAD="$GIT_AHEAD" _QS_BEHIND="$GIT_BEHIND"
 export _QS_LAST_COMMIT="$GIT_LAST_COMMIT" _QS_LAST_MSG="$GIT_LAST_MSG"
@@ -64,7 +62,7 @@ print(json.dumps({
         'generation': os.environ['_QS_GEN'],
         'genDate': os.environ['_QS_GEN_DATE'],
         'kernel': os.environ['_QS_KERNEL'],
-        'storeSize': os.environ['_QS_STORE_SIZE']
+        'genCount': os.environ['_QS_GEN_COUNT']
     },
     'repo': {
         'branch': os.environ['_QS_BRANCH'],

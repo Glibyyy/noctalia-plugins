@@ -148,12 +148,12 @@ Item {
                   ColumnLayout {
                     spacing: 0
                     NText {
-                      text: "Store"
+                      text: "Generations"
                       pointSize: Style.fontSizeXS
                       color: Color.mOnSurfaceVariant
                     }
                     NText {
-                      text: root.sysInfo?.storeSize ?? "?"
+                      text: root.sysInfo?.genCount ?? "?"
                       pointSize: Style.fontSizeS
                       color: Color.mOnSurface
                       font.family: Settings.data.ui.fontFixed
@@ -265,8 +265,9 @@ Item {
                 // Pull button
                 NButton {
                   Layout.fillWidth: true
-                  visible: (root.repoInfo?.behind ?? 0) > 0
-                  text: "Pull " + (root.repoInfo?.behind ?? 0) + " commit(s)"
+                  text: (root.repoInfo?.behind ?? 0) > 0
+                    ? "Pull " + root.repoInfo.behind + " commit(s)"
+                    : "Pull"
                   icon: "git-pull-request"
                   enabled: !root.isRunning
                   onClicked: {
