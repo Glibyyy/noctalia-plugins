@@ -44,8 +44,13 @@ Item {
   property bool isRefreshing: false
   property bool hasAutoStarted: false
 
-  readonly property string _homeDir: Quickshell.env("HOME") ?? ""
-  readonly property string _queryScript: _homeDir + "/.config/noctalia/plugins/tailscale-multi/query.sh"
+  readonly property string _pluginDir: {
+    var url = Qt.resolvedUrl(".").toString()
+    if (url.startsWith("file://")) url = url.substring(7)
+    if (url.endsWith("/")) url = url.substring(0, url.length - 1)
+    return url
+  }
+  readonly property string _queryScript: _pluginDir + "/query.sh"
 
   function filterIPv4(ips) {
     if (!ips || !ips.length) return []

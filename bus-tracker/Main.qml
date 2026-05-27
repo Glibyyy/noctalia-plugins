@@ -40,8 +40,13 @@ Item {
   property bool isRefreshing: false
   property int nextEta: -1
 
-  readonly property string _homeDir: Quickshell.env("HOME") ?? ""
-  readonly property string _queryScript: _homeDir + "/.config/noctalia/plugins/bus-tracker/query.sh"
+  readonly property string _pluginDir: {
+    var url = Qt.resolvedUrl(".").toString()
+    if (url.startsWith("file://")) url = url.substring(7)
+    if (url.endsWith("/")) url = url.substring(0, url.length - 1)
+    return url
+  }
+  readonly property string _queryScript: _pluginDir + "/query.sh"
 
   function queryArrivals() {
     root.isRefreshing = true
