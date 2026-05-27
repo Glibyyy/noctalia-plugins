@@ -112,30 +112,35 @@ Item {
               Repeater {
                 model: root.arrivals
 
-                delegate: Rectangle {
+                delegate: Item {
+                  id: arrivalDelegate
                   Layout.fillWidth: true
-                  Layout.preferredHeight: arrivalContent.implicitHeight + Style.marginM * 2
-                  radius: Style.radiusM
-                  color: "transparent"
+                  Layout.preferredHeight: arrivalRow.implicitHeight + Style.marginM * 2
 
                   readonly property var arrival: modelData
                   readonly property bool isRealtime: arrival.realtime || false
-                  readonly property color statusColor: isRealtime ? Color.mPrimary : Color.mOnSurfaceVariant
+                  readonly property color liveColor: Color.mPrimary
+                  readonly property color schedColor: Qt.alpha(Color.mOnSurfaceVariant, 0.5)
+                  readonly property color statusColor: isRealtime ? liveColor : schedColor
 
                   RowLayout {
-                    id: arrivalContent
+                    id: arrivalRow
                     anchors {
-                      fill: parent
+                      left: parent.left
+                      right: parent.right
+                      verticalCenter: parent.verticalCenter
                       margins: Style.marginM
                     }
                     spacing: Style.marginM
 
-                    // Realtime indicator dot
+                    // Live indicator dot
                     Rectangle {
-                      width: 8
-                      height: 8
-                      radius: 4
-                      color: parent.parent.statusColor
+                      width: 10
+                      height: 10
+                      radius: 5
+                      color: arrivalDelegate.isRealtime ? arrivalDelegate.liveColor : "transparent"
+                      border.width: arrivalDelegate.isRealtime ? 0 : 2
+                      border.color: arrivalDelegate.schedColor
                       Layout.alignment: Qt.AlignVCenter
                     }
 
@@ -144,25 +149,25 @@ Item {
                       implicitWidth: Math.max(lineText.implicitWidth + Style.marginM * 2, 44)
                       implicitHeight: lineText.implicitHeight + Style.marginS
                       radius: Style.radiusS
-                      color: Qt.alpha(parent.parent.statusColor, 0.15)
+                      color: Qt.alpha(arrivalDelegate.statusColor, arrivalDelegate.isRealtime ? 0.15 : 0.08)
                       Layout.alignment: Qt.AlignVCenter
 
                       NText {
                         id: lineText
                         anchors.centerIn: parent
-                        text: arrival.line || ""
+                        text: arrivalDelegate.arrival.line || ""
                         pointSize: Style.fontSizeM
                         font.weight: Style.fontWeightBold
-                        color: parent.parent.parent.statusColor
+                        color: arrivalDelegate.statusColor
                         font.family: Settings.data.ui.fontFixed
                       }
                     }
 
                     // Destination
                     NText {
-                      text: arrival.destination || ""
+                      text: arrivalDelegate.arrival.destination || ""
                       pointSize: Style.fontSizeS
-                      color: Color.mOnSurface
+                      color: arrivalDelegate.isRealtime ? Color.mOnSurface : Qt.alpha(Color.mOnSurface, 0.5)
                       elide: Text.ElideRight
                       Layout.fillWidth: true
                     }
@@ -173,12 +178,13 @@ Item {
                       Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
                       NText {
-                        text: arrival.eta === 0 ? "Now" : arrival.eta + " min"
+                        text: arrivalDelegate.arrival.eta === 0 ? "Now" : arrivalDelegate.arrival.eta + " min"
                         pointSize: Style.fontSizeM
                         font.weight: Style.fontWeightBold
                         color: {
-                          if (arrival.eta <= 2) return Color.mError
-                          if (arrival.eta <= 5) return "#F59E0B"
+                          if (!arrivalDelegate.isRealtime) return Qt.alpha(Color.mOnSurface, 0.4)
+                          if (arrivalDelegate.arrival.eta <= 2) return Color.mError
+                          if (arrivalDelegate.arrival.eta <= 5) return "#F59E0B"
                           return Color.mOnSurface
                         }
                         font.family: Settings.data.ui.fontFixed
@@ -186,7 +192,10 @@ Item {
                       }
 
                       NText {
-                        text: arrival.etaTime || ""
+                        text: {
+                          var time = arrivalDelegate.arrival.etaTime || ""
+                          return arrivalDelegate.isRealtime ? time : time + " (sched)"
+                        }
                         pointSize: Style.fontSizeXS
                         color: Color.mOnSurfaceVariant
                         font.family: Settings.data.ui.fontFixed
