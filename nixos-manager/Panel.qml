@@ -86,6 +86,23 @@ Item {
               pointSize: Style.fontSizeL
               color: "#F59E0B"
             }
+
+            NIcon {
+              icon: "refresh"
+              pointSize: Style.fontSizeS
+              color: refreshMouse.containsMouse ? Color.mPrimary : Color.mOnSurfaceVariant
+
+              MouseArea {
+                id: refreshMouse
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (mainInstance) mainInstance.queryStatus()
+                }
+              }
+            }
           }
 
           Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.1) }
