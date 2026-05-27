@@ -14,14 +14,14 @@ Item {
   readonly property bool allowAttach: true
 
   readonly property var mainInstance: pluginApi?.mainInstance
-  readonly property var arrivals: mainInstance?.arrivals ?? []
+  readonly property var busLines: mainInstance?.busLines ?? []
   readonly property string stopName: mainInstance?.stopName ?? ""
   readonly property bool isRefreshing: mainInstance?.isRefreshing ?? false
 
   readonly property bool panelReady: pluginApi !== null && mainInstance !== null && mainInstance !== undefined
 
-  property real contentPreferredWidth: panelReady ? 350 * Style.uiScaleRatio : 0
-  property real contentPreferredHeight: panelReady ? Math.min(500, Math.max(150, 80 + arrivals.length * 60 + 20)) * Style.uiScaleRatio : 0
+  property real contentPreferredWidth: panelReady ? 380 * Style.uiScaleRatio : 0
+  property real contentPreferredHeight: panelReady ? Math.min(400, 80 + busLines.length * 56 + 20) * Style.uiScaleRatio : 0
 
   anchors.fill: parent
 
@@ -79,13 +79,6 @@ Item {
                 Layout.fillWidth: true
               }
             }
-
-            NIcon {
-              visible: root.isRefreshing
-              icon: "refresh"
-              pointSize: Style.fontSizeS
-              color: Color.mOnSurfaceVariant
-            }
           }
 
           Rectangle {
@@ -94,128 +87,106 @@ Item {
             color: Qt.alpha(Color.mOnSurface, 0.1)
           }
 
-          // Arrivals list
+          // Bus lines
           Flickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             contentWidth: width
-            contentHeight: arrivalColumn.implicitHeight
+            contentHeight: linesColumn.implicitHeight
             interactive: contentHeight > height
             boundsBehavior: Flickable.StopAtBounds
 
             ColumnLayout {
-              id: arrivalColumn
+              id: linesColumn
               width: parent.width
-              spacing: Style.marginS
+              spacing: Style.marginM
 
               Repeater {
-                model: root.arrivals
+                model: root.busLines
 
                 delegate: Item {
-                  id: arrivalDelegate
+                  id: lineDelegate
                   Layout.fillWidth: true
-                  Layout.preferredHeight: arrivalRow.implicitHeight + Style.marginM * 2
+                  Layout.preferredHeight: lineRow.implicitHeight
 
-                  readonly property var arrival: modelData
-                  readonly property bool isRealtime: arrival.realtime || false
-                  readonly property color liveColor: Color.mPrimary
-                  readonly property color schedColor: Qt.alpha(Color.mOnSurfaceVariant, 0.5)
-                  readonly property color statusColor: isRealtime ? liveColor : schedColor
+                  readonly property var lineData: modelData
+                  readonly property bool isActive: lineData.active || false
+                  readonly property var arrivals: lineData.arrivals || []
 
                   RowLayout {
-                    id: arrivalRow
-                    anchors {
-                      left: parent.left
-                      right: parent.right
-                      verticalCenter: parent.verticalCenter
-                      margins: Style.marginM
-                    }
+                    id: lineRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     spacing: Style.marginM
-
-                    // Live indicator dot
-                    Rectangle {
-                      width: 10
-                      height: 10
-                      radius: 5
-                      color: arrivalDelegate.isRealtime ? arrivalDelegate.liveColor : "transparent"
-                      border.width: arrivalDelegate.isRealtime ? 0 : 2
-                      border.color: arrivalDelegate.schedColor
-                      Layout.alignment: Qt.AlignVCenter
-                    }
 
                     // Line number badge
                     Rectangle {
-                      implicitWidth: Math.max(lineText.implicitWidth + Style.marginM * 2, 44)
-                      implicitHeight: lineText.implicitHeight + Style.marginS
+                      implicitWidth: Math.max(lineBadgeText.implicitWidth + Style.marginM * 2, 44)
+                      implicitHeight: lineBadgeText.implicitHeight + Style.marginS * 2
                       radius: Style.radiusS
-                      color: Qt.alpha(arrivalDelegate.statusColor, arrivalDelegate.isRealtime ? 0.15 : 0.08)
+                      color: Qt.alpha(lineDelegate.isActive ? Color.mPrimary : Color.mOnSurfaceVariant, lineDelegate.isActive ? 0.15 : 0.08)
                       Layout.alignment: Qt.AlignVCenter
 
                       NText {
-                        id: lineText
+                        id: lineBadgeText
                         anchors.centerIn: parent
-                        text: arrivalDelegate.arrival.line || ""
+                        text: lineDelegate.lineData.line || ""
                         pointSize: Style.fontSizeM
                         font.weight: Style.fontWeightBold
-                        color: arrivalDelegate.statusColor
+                        color: lineDelegate.isActive ? Color.mPrimary : Qt.alpha(Color.mOnSurfaceVariant, 0.5)
                         font.family: Settings.data.ui.fontFixed
                       }
                     }
 
-                    // Destination
-                    NText {
-                      text: arrivalDelegate.arrival.destination || ""
-                      pointSize: Style.fontSizeS
-                      color: arrivalDelegate.isRealtime ? Color.mOnSurface : Qt.alpha(Color.mOnSurface, 0.5)
-                      elide: Text.ElideRight
+                    // Times row
+                    RowLayout {
                       Layout.fillWidth: true
-                    }
+                      Layout.alignment: Qt.AlignVCenter
+                      spacing: Style.marginS
 
-                    // ETA
-                    ColumnLayout {
-                      spacing: 0
-                      Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                      Repeater {
+                        model: lineDelegate.arrivals
 
-                      NText {
-                        text: arrivalDelegate.arrival.eta === 0 ? "Now" : arrivalDelegate.arrival.eta + " min"
-                        pointSize: Style.fontSizeM
-                        font.weight: Style.fontWeightBold
-                        color: {
-                          if (!arrivalDelegate.isRealtime) return Qt.alpha(Color.mOnSurface, 0.4)
-                          if (arrivalDelegate.arrival.eta <= 2) return Color.mError
-                          if (arrivalDelegate.arrival.eta <= 5) return "#F59E0B"
-                          return Color.mOnSurface
+                        delegate: Rectangle {
+                          id: timeBadge
+                          readonly property var arr: modelData
+                          readonly property bool isRealtime: arr.realtime || false
+
+                          implicitWidth: timeText.implicitWidth + Style.marginS * 2
+                          implicitHeight: timeText.implicitHeight + 4
+                          radius: Style.radiusS
+                          color: isRealtime
+                            ? Qt.alpha(Color.mPrimary, 0.12)
+                            : Qt.alpha(Color.mOnSurfaceVariant, 0.08)
+
+                          NText {
+                            id: timeText
+                            anchors.centerIn: parent
+                            text: timeBadge.arr.eta === 0 ? "Now" : timeBadge.arr.eta + "m"
+                            pointSize: Style.fontSizeS
+                            font.weight: Style.fontWeightMedium
+                            color: {
+                              if (!timeBadge.isRealtime) return Qt.alpha(Color.mOnSurfaceVariant, 0.6)
+                              if (timeBadge.arr.eta <= 2) return Color.mError
+                              if (timeBadge.arr.eta <= 5) return "#F59E0B"
+                              return Color.mPrimary
+                            }
+                            font.family: Settings.data.ui.fontFixed
+                          }
                         }
-                        font.family: Settings.data.ui.fontFixed
-                        horizontalAlignment: Text.AlignRight
                       }
 
+                      // No service indicator
                       NText {
-                        text: {
-                          var time = arrivalDelegate.arrival.etaTime || ""
-                          return arrivalDelegate.isRealtime ? time : time + " (sched)"
-                        }
+                        visible: lineDelegate.arrivals.length === 0
+                        text: "no service"
                         pointSize: Style.fontSizeXS
-                        color: Color.mOnSurfaceVariant
-                        font.family: Settings.data.ui.fontFixed
-                        horizontalAlignment: Text.AlignRight
+                        color: Qt.alpha(Color.mOnSurfaceVariant, 0.4)
                       }
                     }
                   }
                 }
-              }
-
-              // Empty state
-              NText {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: Style.marginL
-                text: "No upcoming buses"
-                visible: root.arrivals.length === 0
-                pointSize: Style.fontSizeM
-                color: Color.mOnSurfaceVariant
-                horizontalAlignment: Text.AlignHCenter
               }
             }
           }

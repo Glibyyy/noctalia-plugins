@@ -35,7 +35,7 @@ Item {
   }
 
   // State
-  property var arrivals: []
+  property var busLines: []
   property string stopName: ""
   property bool isRefreshing: false
   property int nextEta: -1
@@ -67,9 +67,17 @@ Item {
 
       try {
         var data = JSON.parse(output)
-        root.arrivals = data.arrivals || []
+        root.busLines = data.lines || []
         root.stopName = data.stopName || ""
-        root.nextEta = root.arrivals.length > 0 ? root.arrivals[0].eta : -1
+        // Find earliest ETA across all lines
+        var earliest = -1
+        for (var i = 0; i < root.busLines.length; i++) {
+          var arrs = root.busLines[i].arrivals || []
+          if (arrs.length > 0 && (earliest === -1 || arrs[0].eta < earliest)) {
+            earliest = arrs[0].eta
+          }
+        }
+        root.nextEta = earliest
       } catch (e) {
         Logger.e("BusTracker", "Parse error: " + e)
       }
@@ -94,7 +102,7 @@ Item {
 
     function status() {
       return {
-        "arrivals": root.arrivals,
+        "busLines": root.busLines,
         "stopName": root.stopName,
         "nextEta": root.nextEta
       }
