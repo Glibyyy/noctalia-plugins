@@ -1,0 +1,25 @@
+{
+  "id": "chisel",
+  "name": "Chisel",
+  "version": "1.1.0",
+  "minNoctaliaVersion": "4.0.0",
+  "author": "gliby",
+  "license": "MIT",
+  "description": "Show Chisel SOCKS server status in the bar. Start/stop via context menu.",
+  "tags": [
+    "Bar",
+    "Network"
+  ],
+  "entryPoints": {
+    "main": "Main.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "dependencies": {
+    "plugins": []
+  },
+  "metadata": {
+    "defaultSettings": {
+      "refreshInterval": 5000
+    }
+  }
+}

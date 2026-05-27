@@ -1,0 +1,10 @@
+{
+  "refreshInterval": 5000,
+  "compactMode": true,
+  "hideDisconnected": false,
+  "showSearchBar": false,
+  "terminalCommand": "kitty",
+  "sshUsername": "",
+  "pingCount": 5,
+  "defaultPeerAction": "copy-ip"
+}
