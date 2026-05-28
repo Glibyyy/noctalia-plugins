@@ -118,9 +118,13 @@ case "$ACTION" in
 
   git-diff-local)
     cd "$FLAKE_DIR"
-    git diff --stat 2>&1
-    echo "---"
-    git diff 2>&1
+    echo "══════════════════════════════════════════════"
+    echo "  Local Changes"
+    echo "══════════════════════════════════════════════"
+    echo ""
+    git diff --stat --color 2>&1
+    echo ""
+    git diff --color 2>&1
     ;;
 
   git-diff-remote)
@@ -130,14 +134,26 @@ case "$ACTION" in
       BEHIND=$(git rev-list --count "HEAD..$UPSTREAM" 2>/dev/null || echo 0)
       AHEAD=$(git rev-list --count "$UPSTREAM..HEAD" 2>/dev/null || echo 0)
       if [ "$BEHIND" -gt 0 ]; then
-        git log --oneline "HEAD..$UPSTREAM" 2>&1
-        echo "---"
-        git diff "HEAD...$UPSTREAM" --stat 2>&1
+        echo "══════════════════════════════════════════════"
+        echo "  $BEHIND commit(s) behind"
+        echo "══════════════════════════════════════════════"
+        echo ""
+        git log --oneline --color "HEAD..$UPSTREAM" 2>&1
+        echo ""
+        git diff --stat --color "HEAD...$UPSTREAM" 2>&1
+        echo ""
+        git diff --color "HEAD...$UPSTREAM" 2>&1
       fi
       if [ "$AHEAD" -gt 0 ]; then
-        git log --oneline "$UPSTREAM..HEAD" 2>&1
-        echo "---"
-        git diff "$UPSTREAM...HEAD" --stat 2>&1
+        echo "══════════════════════════════════════════════"
+        echo "  $AHEAD commit(s) ahead"
+        echo "══════════════════════════════════════════════"
+        echo ""
+        git log --oneline --color "$UPSTREAM..HEAD" 2>&1
+        echo ""
+        git diff --stat --color "$UPSTREAM...HEAD" 2>&1
+        echo ""
+        git diff --color "$UPSTREAM...HEAD" 2>&1
       fi
     else
       echo "No upstream configured."

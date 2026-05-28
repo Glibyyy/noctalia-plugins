@@ -153,7 +153,7 @@ Item {
                 hoverEnabled: true
                 cursorShape: (root.repoInfo?.dirty ?? false) ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
-                  if ((root.repoInfo?.dirty ?? false) && mainInstance) mainInstance.fetchDiff("local")
+                  if ((root.repoInfo?.dirty ?? false) && mainInstance) mainInstance.runAction("git-diff-local", [])
                 }
               }
             }
@@ -200,7 +200,7 @@ Item {
                 onClicked: {
                   var behind = root.repoInfo?.behind ?? 0
                   var ahead = root.repoInfo?.ahead ?? 0
-                  if ((behind > 0 || ahead > 0) && mainInstance) mainInstance.fetchDiff("remote")
+                  if ((behind > 0 || ahead > 0) && mainInstance) mainInstance.runAction("git-diff-remote", [])
                 }
               }
             }
@@ -213,88 +213,6 @@ Item {
             color: Color.mOnSurface
             elide: Text.ElideRight
             Layout.fillWidth: true
-          }
-
-          // ── Diff view (toggleable) ──────────────────
-          ColumnLayout {
-            Layout.fillWidth: true
-            spacing: Style.marginS
-            visible: (mainInstance?.diffOutput ?? "") !== "" || (mainInstance?.isDiffLoading ?? false)
-
-            Rectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 1
-              color: Qt.alpha(Color.mOnSurface, 0.06)
-            }
-
-            RowLayout {
-              Layout.fillWidth: true
-              spacing: Style.marginS
-
-              NText {
-                text: (mainInstance?.diffType ?? "") === "local" ? "Local Changes" : "Remote Diff"
-                pointSize: Style.fontSizeXS
-                font.weight: Style.fontWeightBold
-                color: Color.mOnSurfaceVariant
-              }
-
-              Item { Layout.fillWidth: true }
-
-              NText {
-                text: "✕"
-                pointSize: Style.fontSizeS
-                color: closeDiffMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
-
-                MouseArea {
-                  id: closeDiffMouse
-                  anchors.fill: parent
-                  anchors.margins: -4
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    if (mainInstance) {
-                      mainInstance.diffOutput = ""
-                      mainInstance.diffType = ""
-                    }
-                  }
-                }
-              }
-            }
-
-            NText {
-              visible: mainInstance?.isDiffLoading ?? false
-              text: "Loading..."
-              pointSize: Style.fontSizeXS
-              color: Color.mOnSurfaceVariant
-            }
-
-            Flickable {
-              Layout.fillWidth: true
-              Layout.preferredHeight: Math.min(diffText.implicitHeight + 8, 200 * Style.uiScaleRatio)
-              visible: (mainInstance?.diffOutput ?? "") !== ""
-              clip: true
-              contentWidth: diffText.implicitWidth
-              contentHeight: diffText.implicitHeight
-              interactive: true
-              boundsBehavior: Flickable.StopAtBounds
-
-              Rectangle {
-                anchors.fill: parent
-                color: Qt.alpha(Color.mOnSurface, 0.04)
-                radius: Style.radiusS
-              }
-
-              NText {
-                id: diffText
-                width: parent.width
-                text: mainInstance?.diffOutput ?? ""
-                pointSize: Style.fontSizeXS
-                color: Color.mOnSurface
-                font.family: Settings.data.ui.fontFixed
-                wrapMode: Text.Wrap
-                padding: 4
-              }
-            }
           }
 
           // Pull/Push buttons (only when needed)

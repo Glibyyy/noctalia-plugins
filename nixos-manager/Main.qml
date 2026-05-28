@@ -39,9 +39,6 @@ Item {
   property bool isRunningAction: false
   property string lastActionOutput: ""
   property bool pendingPush: false
-  property string diffOutput: ""
-  property string diffType: ""  // "local" or "remote"
-  property bool isDiffLoading: false
 
   readonly property string _pluginDir: {
     var url = Qt.resolvedUrl(".").toString()
@@ -92,32 +89,6 @@ Item {
     }
     silentActionProcess.command = cmd
     silentActionProcess.running = true
-  }
-
-  function fetchDiff(type) {
-    if (root.isDiffLoading) return
-    if (root.diffType === type && root.diffOutput !== "") {
-      root.diffOutput = ""
-      root.diffType = ""
-      return
-    }
-    root.isDiffLoading = true
-    root.diffType = type
-    root.diffOutput = ""
-    var action = type === "local" ? "git-diff-local" : "git-diff-remote"
-    diffProcess.command = ["bash", _actionScript, action]
-    diffProcess.running = true
-  }
-
-  Process {
-    id: diffProcess
-    stdout: StdioCollector {}
-    stderr: StdioCollector {}
-
-    onExited: function(exitCode) {
-      root.isDiffLoading = false
-      root.diffOutput = String(diffProcess.stdout.text || "").trim()
-    }
   }
 
   Process {
