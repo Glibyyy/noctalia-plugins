@@ -116,6 +116,34 @@ case "$ACTION" in
     echo "Committed: $MSG"
     ;;
 
+  git-diff-local)
+    cd "$FLAKE_DIR"
+    git diff --stat 2>&1
+    echo "---"
+    git diff 2>&1
+    ;;
+
+  git-diff-remote)
+    cd "$FLAKE_DIR"
+    UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
+    if [ -n "$UPSTREAM" ]; then
+      BEHIND=$(git rev-list --count "HEAD..$UPSTREAM" 2>/dev/null || echo 0)
+      AHEAD=$(git rev-list --count "$UPSTREAM..HEAD" 2>/dev/null || echo 0)
+      if [ "$BEHIND" -gt 0 ]; then
+        git log --oneline "HEAD..$UPSTREAM" 2>&1
+        echo "---"
+        git diff "HEAD...$UPSTREAM" --stat 2>&1
+      fi
+      if [ "$AHEAD" -gt 0 ]; then
+        git log --oneline "$UPSTREAM..HEAD" 2>&1
+        echo "---"
+        git diff "$UPSTREAM...HEAD" --stat 2>&1
+      fi
+    else
+      echo "No upstream configured."
+    fi
+    ;;
+
   *)
     echo "Unknown action: $ACTION" >&2
     exit 1

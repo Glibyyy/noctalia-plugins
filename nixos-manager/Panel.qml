@@ -127,12 +127,13 @@ Item {
 
             Item { Layout.fillWidth: true }
 
-            // Local status badge — always shows
+            // Local status badge — clickable for diff
             Rectangle {
               implicitWidth: localBadge.implicitWidth + Style.marginS * 2
               implicitHeight: localBadge.implicitHeight + 4
               radius: Style.radiusS
-              color: Qt.alpha((root.repoInfo?.dirty ?? false) ? Color.mTertiary : Color.mPrimary, 0.15)
+              color: Qt.alpha((root.repoInfo?.dirty ?? false) ? Color.mTertiary : Color.mPrimary,
+                localBadgeMouse.containsMouse ? 0.25 : 0.15)
 
               NText {
                 id: localBadge
@@ -145,9 +146,19 @@ Item {
                 color: (root.repoInfo?.dirty ?? false) ? Color.mTertiary : Color.mPrimary
                 font.family: Settings.data.ui.fontFixed
               }
+
+              MouseArea {
+                id: localBadgeMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: (root.repoInfo?.dirty ?? false) ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: {
+                  if ((root.repoInfo?.dirty ?? false) && mainInstance) mainInstance.fetchDiff("local")
+                }
+              }
             }
 
-            // Remote status badge — always shows
+            // Remote status badge — clickable for diff
             Rectangle {
               implicitWidth: remoteBadge.implicitWidth + Style.marginS * 2
               implicitHeight: remoteBadge.implicitHeight + 4
@@ -155,9 +166,9 @@ Item {
               color: {
                 var behind = root.repoInfo?.behind ?? 0
                 var ahead = root.repoInfo?.ahead ?? 0
-                if (behind > 0) return Qt.alpha("#F59E0B", 0.15)
-                if (ahead > 0) return Qt.alpha(Color.mPrimary, 0.15)
-                return Qt.alpha(Color.mPrimary, 0.08)
+                var base = behind > 0 ? "#F59E0B" : Color.mPrimary
+                var alpha = (behind > 0 || ahead > 0) ? (remoteBadgeMouse.containsMouse ? 0.25 : 0.15) : 0.08
+                return Qt.alpha(base, alpha)
               }
 
               NText {
@@ -180,6 +191,18 @@ Item {
                 }
                 font.family: Settings.data.ui.fontFixed
               }
+
+              MouseArea {
+                id: remoteBadgeMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: ((root.repoInfo?.behind ?? 0) > 0 || (root.repoInfo?.ahead ?? 0) > 0) ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: {
+                  var behind = root.repoInfo?.behind ?? 0
+                  var ahead = root.repoInfo?.ahead ?? 0
+                  if ((behind > 0 || ahead > 0) && mainInstance) mainInstance.fetchDiff("remote")
+                }
+              }
             }
           }
 
@@ -190,6 +213,88 @@ Item {
             color: Color.mOnSurface
             elide: Text.ElideRight
             Layout.fillWidth: true
+          }
+
+          // ── Diff view (toggleable) ──────────────────
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Style.marginS
+            visible: (mainInstance?.diffOutput ?? "") !== "" || (mainInstance?.isDiffLoading ?? false)
+
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 1
+              color: Qt.alpha(Color.mOnSurface, 0.06)
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: Style.marginS
+
+              NText {
+                text: (mainInstance?.diffType ?? "") === "local" ? "Local Changes" : "Remote Diff"
+                pointSize: Style.fontSizeXS
+                font.weight: Style.fontWeightBold
+                color: Color.mOnSurfaceVariant
+              }
+
+              Item { Layout.fillWidth: true }
+
+              NText {
+                text: "✕"
+                pointSize: Style.fontSizeS
+                color: closeDiffMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
+
+                MouseArea {
+                  id: closeDiffMouse
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (mainInstance) {
+                      mainInstance.diffOutput = ""
+                      mainInstance.diffType = ""
+                    }
+                  }
+                }
+              }
+            }
+
+            NText {
+              visible: mainInstance?.isDiffLoading ?? false
+              text: "Loading..."
+              pointSize: Style.fontSizeXS
+              color: Color.mOnSurfaceVariant
+            }
+
+            Flickable {
+              Layout.fillWidth: true
+              Layout.preferredHeight: Math.min(diffText.implicitHeight + 8, 200 * Style.uiScaleRatio)
+              visible: (mainInstance?.diffOutput ?? "") !== ""
+              clip: true
+              contentWidth: diffText.implicitWidth
+              contentHeight: diffText.implicitHeight
+              interactive: true
+              boundsBehavior: Flickable.StopAtBounds
+
+              Rectangle {
+                anchors.fill: parent
+                color: Qt.alpha(Color.mOnSurface, 0.04)
+                radius: Style.radiusS
+              }
+
+              NText {
+                id: diffText
+                width: parent.width
+                text: mainInstance?.diffOutput ?? ""
+                pointSize: Style.fontSizeXS
+                color: Color.mOnSurface
+                font.family: Settings.data.ui.fontFixed
+                wrapMode: Text.Wrap
+                padding: 4
+              }
+            }
           }
 
           // Pull/Push buttons (only when needed)
