@@ -4,7 +4,7 @@
 # Actions: rebuild, gc, git-pull, git-push, git-commit
 
 set -euo pipefail
-trap 'echo ""; read -n 1 -s -r -p "Press any key to close..."' EXIT
+trap '[ -t 0 ] && { echo ""; read -n 1 -s -r -p "Press any key to close..."; }' EXIT
 
 ACTION="${1:?Usage: action.sh rebuild|gc|git-pull|git-push|git-commit [args...]}"
 shift

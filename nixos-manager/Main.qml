@@ -38,6 +38,7 @@ Item {
   property bool isRefreshing: false
   property bool isRunningAction: false
   property string lastActionOutput: ""
+  property bool pendingPush: false
 
   readonly property string _pluginDir: {
     var url = Qt.resolvedUrl(".").toString()
@@ -118,7 +119,12 @@ Item {
     onExited: function(exitCode) {
       root.isRunningAction = false
       root.lastActionOutput = String(silentActionProcess.stdout.text || "").trim()
-      root.queryStatus()
+      if (root.pendingPush) {
+        root.pendingPush = false
+        root.runActionSilent("git-push")
+      } else {
+        root.queryStatus()
+      }
     }
   }
 

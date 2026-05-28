@@ -320,21 +320,12 @@ Item {
               enabled: !root.isRunning && root.commitMsg.trim() !== ""
               onClicked: {
                 if (mainInstance) {
+                  mainInstance.pendingPush = true
                   mainInstance.runActionSilent("git-commit", [root.commitMsg.trim()])
                   root.commitMsg = ""
                   commitMsgInput.text = ""
-                  pushDelayTimer.start()
                 }
               }
-            }
-          }
-
-          Timer {
-            id: pushDelayTimer
-            interval: 1000
-            repeat: false
-            onTriggered: {
-              if (mainInstance) mainInstance.runActionSilent("git-push")
             }
           }
         }
