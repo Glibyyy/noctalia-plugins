@@ -45,110 +45,15 @@ Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
 
-        // ── Diff View ──────────────────────────────
-        ColumnLayout {
-          anchors.fill: parent
-          anchors.margins: Style.marginM
-          spacing: Style.marginS
-          visible: root.showDiff
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.marginS
-
-            Rectangle {
-              implicitWidth: backRow.implicitWidth + Style.marginS * 2
-              implicitHeight: backRow.implicitHeight + 6
-              radius: Style.radiusS
-              color: backMouse.containsMouse ? Qt.alpha(Color.mPrimary, 0.15) : "transparent"
-
-              RowLayout {
-                id: backRow
-                anchors.centerIn: parent
-                spacing: 4
-
-                NIcon {
-                  icon: "arrow-left"
-                  pointSize: Style.fontSizeS
-                  color: Color.mPrimary
-                }
-
-                NText {
-                  text: "Back"
-                  pointSize: Style.fontSizeS
-                  font.weight: Style.fontWeightMedium
-                  color: Color.mPrimary
-                }
-              }
-
-              MouseArea {
-                id: backMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (mainInstance) mainInstance.closeDiff()
-                }
-              }
-            }
-
-            NText {
-              text: mainInstance?.diffTitle ?? ""
-              pointSize: Style.fontSizeM
-              font.weight: Style.fontWeightBold
-              color: Color.mOnSurface
-              Layout.fillWidth: true
-            }
-          }
-
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.1) }
-
-          NText {
-            visible: mainInstance?.isDiffLoading ?? false
-            text: "Loading..."
-            pointSize: Style.fontSizeS
-            color: Color.mOnSurfaceVariant
-          }
-
-          Flickable {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            visible: (mainInstance?.diffOutput ?? "") !== ""
-            clip: true
-            contentWidth: diffText.implicitWidth + 16
-            contentHeight: diffText.implicitHeight + 16
-            interactive: true
-            boundsBehavior: Flickable.StopAtBounds
-            flickableDirection: Flickable.AutoFlickIfNeeded
-
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-            Rectangle {
-              width: Math.max(parent.contentWidth, parent.width)
-              height: Math.max(parent.contentHeight, parent.height)
-              color: Qt.alpha(Color.mOnSurface, 0.03)
-              radius: Style.radiusS
-            }
-
-            NText {
-              id: diffText
-              x: 8
-              y: 8
-              text: mainInstance?.diffOutput ?? ""
-              pointSize: Style.fontSizeXS
-              color: Color.mOnSurface
-              font.family: Settings.data.ui.fontFixed
-            }
-          }
-        }
-
-        // ── Normal View ────────────────────────────
         ColumnLayout {
           anchors.fill: parent
           anchors.margins: Style.marginM
           spacing: Style.marginS
           clip: true
-          visible: !root.showDiff
+
+          // ══════════════════════════════════════════
+          // SHARED TOP — always visible
+          // ══════════════════════════════════════════
 
           // ── Header ──────────────────────────────────
           RowLayout {
@@ -207,7 +112,7 @@ Item {
 
           Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.1) }
 
-          // ── Repo status (always visible) ────────────
+          // ── Repo status ────────────────────────────
           RowLayout {
             Layout.fillWidth: true
             spacing: Style.marginS
@@ -227,7 +132,7 @@ Item {
 
             Item { Layout.fillWidth: true }
 
-            // Local status badge — clickable for diff
+            // Local status badge
             Rectangle {
               implicitWidth: localBadge.implicitWidth + Style.marginS * 2
               implicitHeight: localBadge.implicitHeight + 4
@@ -253,12 +158,15 @@ Item {
                 hoverEnabled: true
                 cursorShape: (root.repoInfo?.dirty ?? false) ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
-                  if ((root.repoInfo?.dirty ?? false) && mainInstance) mainInstance.openDiff("local")
+                  if ((root.repoInfo?.dirty ?? false) && mainInstance) {
+                    if (root.showDiff) mainInstance.closeDiff()
+                    else mainInstance.openDiff("local")
+                  }
                 }
               }
             }
 
-            // Remote status badge — clickable for diff
+            // Remote status badge
             Rectangle {
               implicitWidth: remoteBadge.implicitWidth + Style.marginS * 2
               implicitHeight: remoteBadge.implicitHeight + 4
@@ -300,7 +208,10 @@ Item {
                 onClicked: {
                   var behind = root.repoInfo?.behind ?? 0
                   var ahead = root.repoInfo?.ahead ?? 0
-                  if ((behind > 0 || ahead > 0) && mainInstance) mainInstance.openDiff("remote")
+                  if ((behind > 0 || ahead > 0) && mainInstance) {
+                    if (root.showDiff) mainInstance.closeDiff()
+                    else mainInstance.openDiff("remote")
+                  }
                 }
               }
             }
@@ -315,10 +226,95 @@ Item {
             Layout.fillWidth: true
           }
 
-          // Pull/Push buttons (only when needed)
+          // ══════════════════════════════════════════
+          // DIFF VIEW — replaces bottom section
+          // ══════════════════════════════════════════
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: Qt.alpha(Color.mPrimary, 0.3)
+            visible: root.showDiff
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.marginS
+            visible: root.showDiff
+
+            NText {
+              text: mainInstance?.diffTitle ?? ""
+              pointSize: Style.fontSizeS
+              font.weight: Style.fontWeightBold
+              color: Color.mPrimary
+              Layout.fillWidth: true
+            }
+
+            NText {
+              text: "✕ close"
+              pointSize: Style.fontSizeXS
+              color: closeDiffMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
+
+              MouseArea {
+                id: closeDiffMouse
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (mainInstance) mainInstance.closeDiff()
+                }
+              }
+            }
+          }
+
+          NText {
+            visible: (mainInstance?.isDiffLoading ?? false) && root.showDiff
+            text: "Loading..."
+            pointSize: Style.fontSizeS
+            color: Color.mOnSurfaceVariant
+          }
+
+          Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.showDiff && (mainInstance?.diffOutput ?? "") !== ""
+            clip: true
+            contentWidth: diffText.implicitWidth + 16
+            contentHeight: diffText.implicitHeight + 16
+            interactive: true
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.AutoFlickIfNeeded
+
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            Rectangle {
+              width: Math.max(parent.contentWidth, parent.width)
+              height: Math.max(parent.contentHeight, parent.height)
+              color: Qt.alpha(Color.mOnSurface, 0.03)
+              radius: Style.radiusS
+            }
+
+            Text {
+              id: diffText
+              x: 8
+              y: 8
+              textFormat: Text.RichText
+              text: mainInstance?.diffOutput ?? ""
+              font.pointSize: Style.fontSizeXS
+              color: Color.mOnSurface
+              font.family: Settings.data.ui.fontFixed
+            }
+          }
+
+          // ══════════════════════════════════════════
+          // NORMAL BOTTOM — hidden when diff is open
+          // ══════════════════════════════════════════
+
+          // Pull/Push buttons
           NButton {
             Layout.fillWidth: true
-            visible: (root.repoInfo?.behind ?? 0) > 0
+            visible: !root.showDiff && (root.repoInfo?.behind ?? 0) > 0
             text: "Pull " + (root.repoInfo?.behind ?? 0) + " commit(s)"
             icon: "git-pull-request"
             enabled: !root.isRunning
@@ -329,7 +325,7 @@ Item {
 
           NButton {
             Layout.fillWidth: true
-            visible: (root.repoInfo?.ahead ?? 0) > 0
+            visible: !root.showDiff && (root.repoInfo?.ahead ?? 0) > 0
             text: "Push " + (root.repoInfo?.ahead ?? 0) + " commit(s)"
             icon: "send"
             enabled: !root.isRunning
@@ -338,10 +334,11 @@ Item {
             }
           }
 
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06) }
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
 
           // ── Rebuild ─────────────────────────────────
           NText {
+            visible: !root.showDiff
             text: "Rebuild"
             pointSize: Style.fontSizeS
             font.weight: Style.fontWeightBold
@@ -351,6 +348,7 @@ Item {
           Flow {
             Layout.fillWidth: true
             spacing: Style.marginS
+            visible: !root.showDiff
 
             Repeater {
               model: [
@@ -373,10 +371,11 @@ Item {
             }
           }
 
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06) }
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
 
           // ── Garbage Collection ───────────────────────
           NText {
+            visible: !root.showDiff
             text: "Garbage Collection"
             pointSize: Style.fontSizeS
             font.weight: Style.fontWeightBold
@@ -386,6 +385,7 @@ Item {
           Flow {
             Layout.fillWidth: true
             spacing: Style.marginS
+            visible: !root.showDiff
 
             Repeater {
               model: [
@@ -407,12 +407,12 @@ Item {
             }
           }
 
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06) }
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
 
           // ── Git (only when dirty) ─────────────────
           NTextInput {
             id: commitMsgInput
-            visible: root.repoInfo?.dirty ?? false
+            visible: !root.showDiff && (root.repoInfo?.dirty ?? false)
             Layout.fillWidth: true
             placeholderText: "Commit message..."
             text: root.commitMsg
@@ -420,7 +420,7 @@ Item {
           }
 
           RowLayout {
-            visible: root.repoInfo?.dirty ?? false
+            visible: !root.showDiff && (root.repoInfo?.dirty ?? false)
             Layout.fillWidth: true
             spacing: Style.marginS
 

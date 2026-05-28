@@ -111,6 +111,35 @@ Item {
     root.diffTitle = ""
   }
 
+  function ansiToHtml(text) {
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    var spanOpen = 0
+    text = text.replace(/\x1b\[([;\d]*)m/g, function(match, codes) {
+      var parts = codes ? codes.split(';') : ['0']
+      var result = ''
+      for (var i = 0; i < parts.length; i++) {
+        var c = parts[i]
+        if (c === '0' || c === '') {
+          if (spanOpen > 0) { result += '</span>'; spanOpen-- }
+        } else if (c === '1') {
+          result += '<span style="font-weight:bold">'; spanOpen++
+        } else if (c === '31') {
+          result += '<span style="color:#F87171">'; spanOpen++
+        } else if (c === '32') {
+          result += '<span style="color:#4ADE80">'; spanOpen++
+        } else if (c === '33') {
+          result += '<span style="color:#FBBF24">'; spanOpen++
+        } else if (c === '36') {
+          result += '<span style="color:#67E8F9">'; spanOpen++
+        }
+      }
+      return result
+    })
+    while (spanOpen > 0) { text += '</span>'; spanOpen-- }
+    text = text.replace(/\n/g, '<br>')
+    return '<pre style="margin:0; white-space:pre-wrap">' + text + '</pre>'
+  }
+
   Process {
     id: diffProcess
     stdout: StdioCollector {}
@@ -118,8 +147,8 @@ Item {
 
     onExited: function(exitCode) {
       root.isDiffLoading = false
-      root.diffOutput = String(diffProcess.stdout.text || "").trim()
-      if (!root.diffOutput) root.diffOutput = "(no changes)"
+      var raw = String(diffProcess.stdout.text || "").trim()
+      root.diffOutput = raw ? root.ansiToHtml(raw) : "(no changes)"
     }
   }
 
