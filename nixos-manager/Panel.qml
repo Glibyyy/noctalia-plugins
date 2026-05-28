@@ -17,11 +17,12 @@ Item {
   readonly property var sysInfo: mainInstance?.systemInfo ?? null
   readonly property var repoInfo: mainInstance?.repoInfo ?? null
   readonly property bool isRunning: mainInstance?.isRunningAction ?? false
+  readonly property bool showDiff: mainInstance?.showDiff ?? false
 
   readonly property bool panelReady: pluginApi !== null && mainInstance !== null
 
-  property real contentPreferredWidth: panelReady ? 400 * Style.uiScaleRatio : 0
-  property real contentPreferredHeight: panelReady ? 480 * Style.uiScaleRatio : 0
+  property real contentPreferredWidth: panelReady ? (showDiff ? 520 : 400) * Style.uiScaleRatio : 0
+  property real contentPreferredHeight: panelReady ? (showDiff ? 550 : 480) * Style.uiScaleRatio : 0
 
   property string commitMsg: ""
 
@@ -44,11 +45,110 @@ Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
 
+        // ── Diff View ──────────────────────────────
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: Style.marginM
+          spacing: Style.marginS
+          visible: root.showDiff
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.marginS
+
+            Rectangle {
+              implicitWidth: backRow.implicitWidth + Style.marginS * 2
+              implicitHeight: backRow.implicitHeight + 6
+              radius: Style.radiusS
+              color: backMouse.containsMouse ? Qt.alpha(Color.mPrimary, 0.15) : "transparent"
+
+              RowLayout {
+                id: backRow
+                anchors.centerIn: parent
+                spacing: 4
+
+                NIcon {
+                  icon: "arrow-left"
+                  pointSize: Style.fontSizeS
+                  color: Color.mPrimary
+                }
+
+                NText {
+                  text: "Back"
+                  pointSize: Style.fontSizeS
+                  font.weight: Style.fontWeightMedium
+                  color: Color.mPrimary
+                }
+              }
+
+              MouseArea {
+                id: backMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (mainInstance) mainInstance.closeDiff()
+                }
+              }
+            }
+
+            NText {
+              text: mainInstance?.diffTitle ?? ""
+              pointSize: Style.fontSizeM
+              font.weight: Style.fontWeightBold
+              color: Color.mOnSurface
+              Layout.fillWidth: true
+            }
+          }
+
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.1) }
+
+          NText {
+            visible: mainInstance?.isDiffLoading ?? false
+            text: "Loading..."
+            pointSize: Style.fontSizeS
+            color: Color.mOnSurfaceVariant
+          }
+
+          Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: (mainInstance?.diffOutput ?? "") !== ""
+            clip: true
+            contentWidth: diffText.implicitWidth + 16
+            contentHeight: diffText.implicitHeight + 16
+            interactive: true
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.AutoFlickIfNeeded
+
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            Rectangle {
+              width: Math.max(parent.contentWidth, parent.width)
+              height: Math.max(parent.contentHeight, parent.height)
+              color: Qt.alpha(Color.mOnSurface, 0.03)
+              radius: Style.radiusS
+            }
+
+            NText {
+              id: diffText
+              x: 8
+              y: 8
+              text: mainInstance?.diffOutput ?? ""
+              pointSize: Style.fontSizeXS
+              color: Color.mOnSurface
+              font.family: Settings.data.ui.fontFixed
+            }
+          }
+        }
+
+        // ── Normal View ────────────────────────────
         ColumnLayout {
           anchors.fill: parent
           anchors.margins: Style.marginM
           spacing: Style.marginS
           clip: true
+          visible: !root.showDiff
 
           // ── Header ──────────────────────────────────
           RowLayout {
@@ -153,7 +253,7 @@ Item {
                 hoverEnabled: true
                 cursorShape: (root.repoInfo?.dirty ?? false) ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
-                  if ((root.repoInfo?.dirty ?? false) && mainInstance) mainInstance.runAction("git-diff-local", [])
+                  if ((root.repoInfo?.dirty ?? false) && mainInstance) mainInstance.openDiff("local")
                 }
               }
             }
@@ -200,7 +300,7 @@ Item {
                 onClicked: {
                   var behind = root.repoInfo?.behind ?? 0
                   var ahead = root.repoInfo?.ahead ?? 0
-                  if ((behind > 0 || ahead > 0) && mainInstance) mainInstance.runAction("git-diff-remote", [])
+                  if ((behind > 0 || ahead > 0) && mainInstance) mainInstance.openDiff("remote")
                 }
               }
             }
