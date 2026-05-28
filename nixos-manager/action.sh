@@ -98,7 +98,7 @@ case "$ACTION" in
 
   git-pull)
     cd "$FLAKE_DIR"
-    git pull 2>&1
+    git pull --rebase 2>&1
     echo "Pull complete."
     ;;
 
