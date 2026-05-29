@@ -38,6 +38,8 @@ Item {
   property var connections: []
   property bool isRefreshing: false
   property int nextEta: -1
+  property bool hasError: false
+  property string lastUpdated: ""
 
   readonly property string _pluginDir: {
     var url = Qt.resolvedUrl(".").toString()
@@ -65,13 +67,20 @@ Item {
     onExited: function(exitCode) {
       root.isRefreshing = false
       var output = String(queryProcess.stdout.text || "").trim()
-      if (!output) return
+      if (!output) {
+        root.hasError = true
+        return
+      }
 
       try {
         var data = JSON.parse(output)
         root.stopData1 = data.stop1 || null
         root.stopData2 = data.stop2 || null
         root.connections = data.connections || []
+        root.hasError = false
+
+        var now = new Date()
+        root.lastUpdated = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2)
 
         // Find earliest ETA across stop 1
         var earliest = -1
@@ -86,6 +95,7 @@ Item {
         }
         root.nextEta = earliest
       } catch (e) {
+        root.hasError = true
         Logger.e("BusTracker", "Parse error: " + e)
       }
     }

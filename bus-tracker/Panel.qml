@@ -18,6 +18,8 @@ Item {
   readonly property var stopData2: mainInstance?.stopData2 ?? null
   readonly property var connections: mainInstance?.connections ?? []
   readonly property bool isRefreshing: mainInstance?.isRefreshing ?? false
+  readonly property bool hasError: mainInstance?.hasError ?? false
+  readonly property string lastUpdated: mainInstance?.lastUpdated ?? ""
 
   readonly property bool panelReady: pluginApi !== null && mainInstance !== null && mainInstance !== undefined
   readonly property bool hasStop2: stopData2 !== null && (stopData2.code || "") !== ""
@@ -78,8 +80,23 @@ Item {
               Layout.fillWidth: true
             }
 
+            NText {
+              visible: root.lastUpdated !== "" && !root.hasError
+              text: root.lastUpdated
+              pointSize: Style.fontSizeXS
+              color: Color.mOnSurfaceVariant
+              font.family: Settings.data.ui.fontFixed
+            }
+
             NIcon {
-              visible: root.isRefreshing
+              visible: root.hasError
+              icon: "warning"
+              pointSize: Style.fontSizeS
+              color: Color.mError
+            }
+
+            NIcon {
+              visible: root.isRefreshing && !root.hasError
               icon: "refresh"
               pointSize: Style.fontSizeS
               color: Color.mOnSurfaceVariant
@@ -150,6 +167,15 @@ Item {
                           color: s1LineDelegate.lineData.active ? Color.mPrimary : Qt.alpha(Color.mOnSurfaceVariant, 0.5)
                           font.family: Settings.data.ui.fontFixed
                         }
+                      }
+
+                      NText {
+                        visible: (s1LineDelegate.lineData.destination || "") !== ""
+                        text: "→ " + (s1LineDelegate.lineData.destination || "")
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 100
                       }
 
                       Repeater {
@@ -331,6 +357,15 @@ Item {
                           color: s2LineDelegate.lineData.active ? Color.mTertiary : Qt.alpha(Color.mOnSurfaceVariant, 0.5)
                           font.family: Settings.data.ui.fontFixed
                         }
+                      }
+
+                      NText {
+                        visible: (s2LineDelegate.lineData.destination || "") !== ""
+                        text: "→ " + (s2LineDelegate.lineData.destination || "")
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 100
                       }
 
                       Repeater {

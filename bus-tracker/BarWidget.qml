@@ -18,6 +18,7 @@ Item {
   readonly property var mainInstance: pluginApi?.mainInstance
   readonly property int nextEta: mainInstance?.nextEta ?? -1
   readonly property bool hasData: nextEta >= 0
+  readonly property bool hasError: mainInstance?.hasError ?? false
 
   readonly property real contentWidth: {
     if (!hasData) return Style.capsuleHeight
@@ -42,17 +43,28 @@ Item {
       spacing: Style.marginS
 
       NIcon {
-        icon: "bus"
+        icon: root.hasError ? "warning" : "bus"
         pointSize: Style.fontSizeL
-        color: root.hasData ? Color.mPrimary : Color.mOnSurfaceVariant
+        color: {
+          if (root.hasError) return Color.mError
+          if (!root.hasData) return Color.mOnSurfaceVariant
+          if (root.nextEta <= 2) return Color.mError
+          if (root.nextEta <= 5) return "#F59E0B"
+          return Color.mPrimary
+        }
       }
 
       NText {
-        visible: root.hasData
+        visible: root.hasData && !root.hasError
         text: root.nextEta + "m"
         pointSize: Style.fontSizeS
         font.weight: Style.fontWeightBold
-        color: mouseArea.containsMouse ? Color.mOnHover : Color.mOnSurface
+        color: {
+          if (mouseArea.containsMouse) return Color.mOnHover
+          if (root.nextEta <= 2) return Color.mError
+          if (root.nextEta <= 5) return "#F59E0B"
+          return Color.mOnSurface
+        }
         font.family: Settings.data.ui.fontFixed
       }
     }
