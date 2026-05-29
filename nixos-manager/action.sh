@@ -176,6 +176,16 @@ case "$ACTION" in
     fi
     ;;
 
+  git-diff-file)
+    FILE="${1:?file path required}"
+    cd "$FLAKE_DIR"
+    if git ls-files --others --exclude-standard -- "$FILE" 2>/dev/null | grep -q .; then
+      git diff --no-index --color -- /dev/null "$FILE" 2>&1 || true
+    else
+      git diff --color -- "$FILE" 2>&1
+    fi
+    ;;
+
   git-add-untracked)
     cd "$FLAKE_DIR"
     UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null || echo "")

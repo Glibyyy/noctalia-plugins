@@ -18,11 +18,13 @@ Item {
   readonly property var repoInfo: mainInstance?.repoInfo ?? null
   readonly property bool isRunning: mainInstance?.isRunningAction ?? false
   readonly property bool showDiff: mainInstance?.showDiff ?? false
+  readonly property bool showFileList: mainInstance?.showFileList ?? false
+  readonly property bool showNormal: !root.showDiff && !root.showFileList
 
   readonly property bool panelReady: pluginApi !== null && mainInstance !== null
 
-  property real contentPreferredWidth: panelReady ? (showDiff ? 520 : 400) * Style.uiScaleRatio : 0
-  property real contentPreferredHeight: panelReady ? (showDiff ? 550 : 480) * Style.uiScaleRatio : 0
+  property real contentPreferredWidth: panelReady ? ((showDiff || showFileList) ? 520 : 400) * Style.uiScaleRatio : 0
+  property real contentPreferredHeight: panelReady ? ((showDiff || showFileList) ? 550 : 480) * Style.uiScaleRatio : 0
 
   property string commitMsg: ""
 
@@ -159,8 +161,8 @@ Item {
                 cursorShape: (root.repoInfo?.dirty ?? false) ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
                   if ((root.repoInfo?.dirty ?? false) && mainInstance) {
-                    if (root.showDiff) mainInstance.closeDiff()
-                    else mainInstance.openDiff("local")
+                    if (root.showFileList || root.showDiff) mainInstance.closeFileList()
+                    else mainInstance.openFileList()
                   }
                 }
               }
@@ -227,6 +229,117 @@ Item {
           }
 
           // ══════════════════════════════════════════
+          // FILE LIST VIEW — replaces bottom section
+          // ══════════════════════════════════════════
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: Qt.alpha(Color.mPrimary, 0.3)
+            visible: root.showFileList && !root.showDiff
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.marginS
+            visible: root.showFileList && !root.showDiff
+
+            NText {
+              text: "Changed Files"
+              pointSize: Style.fontSizeS
+              font.weight: Style.fontWeightBold
+              color: Color.mPrimary
+              Layout.fillWidth: true
+            }
+
+            NText {
+              text: "✕ close"
+              pointSize: Style.fontSizeXS
+              color: closeFileListMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
+
+              MouseArea {
+                id: closeFileListMouse
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (mainInstance) mainInstance.closeFileList()
+                }
+              }
+            }
+          }
+
+          Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.showFileList && !root.showDiff
+            clip: true
+            contentHeight: fileListColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            ColumnLayout {
+              id: fileListColumn
+              width: parent.width
+              spacing: 2
+
+              Repeater {
+                model: root.repoInfo?.changedFiles ?? []
+
+                delegate: Rectangle {
+                  Layout.fillWidth: true
+                  implicitHeight: fileRow.implicitHeight + 8
+                  radius: Style.radiusS
+                  color: fileMouse.containsMouse ? Qt.alpha(Color.mOnSurface, 0.06) : "transparent"
+
+                  RowLayout {
+                    id: fileRow
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    spacing: Style.marginS
+
+                    NText {
+                      text: modelData.status
+                      pointSize: Style.fontSizeXS
+                      font.weight: Style.fontWeightBold
+                      font.family: Settings.data.ui.fontFixed
+                      color: {
+                        var s = modelData.status
+                        if (s === "??" || s === "?") return "#F59E0B"
+                        if (s === "A") return "#4ADE80"
+                        if (s === "D") return "#F87171"
+                        return Color.mTertiary
+                      }
+                      Layout.preferredWidth: 24
+                    }
+
+                    NText {
+                      text: modelData.file
+                      pointSize: Style.fontSizeXS
+                      color: Color.mOnSurface
+                      font.family: Settings.data.ui.fontFixed
+                      elide: Text.ElideMiddle
+                      Layout.fillWidth: true
+                    }
+                  }
+
+                  MouseArea {
+                    id: fileMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      if (mainInstance) mainInstance.openFileDiff(modelData.file)
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // ══════════════════════════════════════════
           // DIFF VIEW — replaces bottom section
           // ══════════════════════════════════════════
 
@@ -251,7 +364,7 @@ Item {
             }
 
             NText {
-              text: "✕ close"
+              text: root.showFileList ? "← back" : "✕ close"
               pointSize: Style.fontSizeXS
               color: closeDiffMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
 
@@ -314,7 +427,7 @@ Item {
           // Pull/Push buttons
           NButton {
             Layout.fillWidth: true
-            visible: !root.showDiff && (root.repoInfo?.behind ?? 0) > 0
+            visible: root.showNormal && (root.repoInfo?.behind ?? 0) > 0
             text: "Pull " + (root.repoInfo?.behind ?? 0) + " commit(s)"
             icon: "git-pull-request"
             enabled: !root.isRunning
@@ -325,7 +438,7 @@ Item {
 
           NButton {
             Layout.fillWidth: true
-            visible: !root.showDiff && (root.repoInfo?.ahead ?? 0) > 0
+            visible: root.showNormal && (root.repoInfo?.ahead ?? 0) > 0
             text: "Push " + (root.repoInfo?.ahead ?? 0) + " commit(s)"
             icon: "send"
             enabled: !root.isRunning
@@ -334,7 +447,7 @@ Item {
             }
           }
 
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: root.showNormal }
 
           // ── Untracked files warning ─────────────────
           Rectangle {
@@ -342,7 +455,7 @@ Item {
             implicitHeight: untrackedRow.implicitHeight + Style.marginS * 2
             radius: Style.radiusS
             color: Qt.alpha("#F59E0B", 0.15)
-            visible: !root.showDiff && (root.repoInfo?.untrackedCount ?? 0) > 0
+            visible: root.showNormal && (root.repoInfo?.untrackedCount ?? 0) > 0
 
             RowLayout {
               id: untrackedRow
@@ -376,7 +489,7 @@ Item {
 
           // ── Rebuild ─────────────────────────────────
           NText {
-            visible: !root.showDiff
+            visible: root.showNormal
             text: "Rebuild"
             pointSize: Style.fontSizeS
             font.weight: Style.fontWeightBold
@@ -386,7 +499,7 @@ Item {
           Flow {
             Layout.fillWidth: true
             spacing: Style.marginS
-            visible: !root.showDiff
+            visible: root.showNormal
 
             Repeater {
               model: [
@@ -409,11 +522,11 @@ Item {
             }
           }
 
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: root.showNormal }
 
           // ── Garbage Collection ───────────────────────
           NText {
-            visible: !root.showDiff
+            visible: root.showNormal
             text: "Garbage Collection"
             pointSize: Style.fontSizeS
             font.weight: Style.fontWeightBold
@@ -423,7 +536,7 @@ Item {
           Flow {
             Layout.fillWidth: true
             spacing: Style.marginS
-            visible: !root.showDiff
+            visible: root.showNormal
 
             Repeater {
               model: [
@@ -445,12 +558,12 @@ Item {
             }
           }
 
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: root.showNormal }
 
           // ── Git (only when dirty) ─────────────────
           NTextInput {
             id: commitMsgInput
-            visible: !root.showDiff && (root.repoInfo?.dirty ?? false)
+            visible: root.showNormal && (root.repoInfo?.dirty ?? false)
             Layout.fillWidth: true
             placeholderText: "Commit message..."
             text: root.commitMsg
@@ -458,7 +571,7 @@ Item {
           }
 
           RowLayout {
-            visible: !root.showDiff && (root.repoInfo?.dirty ?? false)
+            visible: root.showNormal && (root.repoInfo?.dirty ?? false)
             Layout.fillWidth: true
             spacing: Style.marginS
 

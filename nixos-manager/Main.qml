@@ -43,6 +43,7 @@ Item {
   property string diffTitle: ""
   property bool isDiffLoading: false
   property bool showDiff: false
+  property bool showFileList: false
 
   readonly property string _pluginDir: {
     var url = Qt.resolvedUrl(".").toString()
@@ -93,6 +94,27 @@ Item {
     }
     silentActionProcess.command = cmd
     silentActionProcess.running = true
+  }
+
+  function openFileList() {
+    root.showFileList = true
+    root.showDiff = false
+  }
+
+  function closeFileList() {
+    root.showFileList = false
+    root.showDiff = false
+    root.diffOutput = ""
+    root.diffTitle = ""
+  }
+
+  function openFileDiff(filePath) {
+    root.isDiffLoading = true
+    root.showDiff = true
+    root.diffOutput = ""
+    root.diffTitle = filePath
+    diffProcess.command = ["bash", _actionScript, "git-diff-file", filePath]
+    diffProcess.running = true
   }
 
   function openDiff(type) {

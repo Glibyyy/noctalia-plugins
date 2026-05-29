@@ -60,9 +60,19 @@ export _QS_BRANCH="$GIT_BRANCH" _QS_DIRTY="$GIT_DIRTY" _QS_DIRTY_COUNT="$GIT_DIR
 export _QS_AHEAD="$GIT_AHEAD" _QS_BEHIND="$GIT_BEHIND"
 export _QS_LAST_COMMIT="$GIT_LAST_COMMIT" _QS_LAST_MSG="$GIT_LAST_MSG"
 export _QS_UNTRACKED="$GIT_UNTRACKED"
+export _QS_CHANGED_RAW="$DIRTY_FILES"
 
 python3 -c "
 import json, os
+changed_raw = os.environ.get('_QS_CHANGED_RAW', '')
+changed_files = []
+for line in changed_raw.split('\n'):
+    line = line.rstrip()
+    if len(line) < 4: continue
+    status = line[:2].strip()
+    path = line[3:]
+    changed_files.append({'status': status, 'file': path})
+
 print(json.dumps({
     'system': {
         'hostname': os.environ['_QS_HOSTNAME'],
@@ -79,7 +89,8 @@ print(json.dumps({
         'behind': int(os.environ['_QS_BEHIND']),
         'lastCommit': os.environ['_QS_LAST_COMMIT'],
         'lastMsg': os.environ['_QS_LAST_MSG'],
-        'untrackedCount': int(os.environ['_QS_UNTRACKED'])
+        'untrackedCount': int(os.environ['_QS_UNTRACKED']),
+        'changedFiles': changed_files
     }
 }))
 "
