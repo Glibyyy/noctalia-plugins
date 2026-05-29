@@ -336,6 +336,44 @@ Item {
 
           Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: !root.showDiff }
 
+          // ── Untracked files warning ─────────────────
+          Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: untrackedRow.implicitHeight + Style.marginS * 2
+            radius: Style.radiusS
+            color: Qt.alpha("#F59E0B", 0.15)
+            visible: !root.showDiff && (root.repoInfo?.untrackedCount ?? 0) > 0
+
+            RowLayout {
+              id: untrackedRow
+              anchors.fill: parent
+              anchors.margins: Style.marginS
+              spacing: Style.marginS
+
+              NIcon {
+                icon: "alert-triangle"
+                pointSize: Style.fontSizeS
+                color: "#F59E0B"
+              }
+
+              NText {
+                text: (root.repoInfo?.untrackedCount ?? 0) + " untracked — rebuild will fail"
+                pointSize: Style.fontSizeXS
+                color: "#F59E0B"
+                Layout.fillWidth: true
+              }
+
+              NButton {
+                text: "Stage All"
+                icon: "plus"
+                enabled: !root.isRunning
+                onClicked: {
+                  if (mainInstance) mainInstance.runActionSilent("git-add-untracked")
+                }
+              }
+            }
+          }
+
           // ── Rebuild ─────────────────────────────────
           NText {
             visible: !root.showDiff

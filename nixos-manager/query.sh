@@ -24,6 +24,7 @@ GIT_AHEAD=0
 GIT_BEHIND=0
 GIT_LAST_COMMIT=""
 GIT_LAST_MSG=""
+GIT_UNTRACKED=0
 
 if [ -d "$FLAKE_DIR/.git" ]; then
   cd "$FLAKE_DIR"
@@ -33,6 +34,11 @@ if [ -d "$FLAKE_DIR/.git" ]; then
   if [ -n "$DIRTY_FILES" ]; then
     GIT_DIRTY=true
     GIT_DIRTY_COUNT=$(echo "$DIRTY_FILES" | wc -l)
+  fi
+
+  UNTRACKED_FILES=$(git ls-files --others --exclude-standard 2>/dev/null || echo "")
+  if [ -n "$UNTRACKED_FILES" ]; then
+    GIT_UNTRACKED=$(echo "$UNTRACKED_FILES" | wc -l)
   fi
 
   # Fetch remote (quick, for behind detection)
@@ -53,6 +59,7 @@ export _QS_KERNEL="$KERNEL" _QS_GEN_COUNT="$GEN_COUNT"
 export _QS_BRANCH="$GIT_BRANCH" _QS_DIRTY="$GIT_DIRTY" _QS_DIRTY_COUNT="$GIT_DIRTY_COUNT"
 export _QS_AHEAD="$GIT_AHEAD" _QS_BEHIND="$GIT_BEHIND"
 export _QS_LAST_COMMIT="$GIT_LAST_COMMIT" _QS_LAST_MSG="$GIT_LAST_MSG"
+export _QS_UNTRACKED="$GIT_UNTRACKED"
 
 python3 -c "
 import json, os
@@ -71,7 +78,8 @@ print(json.dumps({
         'ahead': int(os.environ['_QS_AHEAD']),
         'behind': int(os.environ['_QS_BEHIND']),
         'lastCommit': os.environ['_QS_LAST_COMMIT'],
-        'lastMsg': os.environ['_QS_LAST_MSG']
+        'lastMsg': os.environ['_QS_LAST_MSG'],
+        'untrackedCount': int(os.environ['_QS_UNTRACKED'])
     }
 }))
 "

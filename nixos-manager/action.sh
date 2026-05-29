@@ -23,6 +23,22 @@ case "$ACTION" in
     echo "══════════════════════════════════════════════"
     echo ""
 
+    # Check for untracked files that will break flake builds
+    UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null || echo "")
+    if [ -n "$UNTRACKED" ]; then
+      UCOUNT=$(echo "$UNTRACKED" | wc -l)
+      echo "⚠ $UCOUNT untracked file(s) — flake cannot see these:"
+      echo "$UNTRACKED" | sed 's/^/  /'
+      echo ""
+      read -p "Stage them before rebuild? [Y/n] " STAGE_ANSWER
+      STAGE_ANSWER="${STAGE_ANSWER:-Y}"
+      if [[ "$STAGE_ANSWER" =~ ^[Yy]$ ]]; then
+        echo "$UNTRACKED" | xargs git add
+        echo "Staged."
+        echo ""
+      fi
+    fi
+
     if [[ "$MODE" == "flake" ]]; then
       echo "Updating flake inputs..."
       nix flake update --flake "$FLAKE_DIR"
@@ -157,6 +173,17 @@ case "$ACTION" in
       fi
     else
       echo "No upstream configured."
+    fi
+    ;;
+
+  git-add-untracked)
+    cd "$FLAKE_DIR"
+    UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null || echo "")
+    if [ -n "$UNTRACKED" ]; then
+      echo "$UNTRACKED" | xargs git add
+      echo "Staged $(echo "$UNTRACKED" | wc -l) untracked file(s)."
+    else
+      echo "No untracked files."
     fi
     ;;
 
