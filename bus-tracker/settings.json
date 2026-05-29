@@ -1,11 +1,17 @@
 {
-  "stop1": {
-    "code": "21477",
-    "lines": ["33", "32", "54"]
-  },
-  "stop2": {
-    "code": "21450",
-    "lines": ["32", "33", "42", "54", "525", "531", "621"]
-  },
-  "refreshInterval": 30000
+  "profiles": [
+    {
+      "name": "Default",
+      "stops": [
+        { "code": "21477", "name": "", "lines": ["33", "32", "54"] },
+        { "code": "21450", "name": "", "lines": ["32", "33", "42", "54", "525", "531", "621"] }
+      ],
+      "walkTime": 10
+    }
+  ],
+  "activeProfile": 0,
+  "refreshInterval": 30000,
+  "activeHoursStart": 9,
+  "activeHoursEnd": 20,
+  "notifyBeforeMinutes": 10
 }

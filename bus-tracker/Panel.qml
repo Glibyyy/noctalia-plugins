@@ -14,26 +14,40 @@ Item {
   readonly property bool allowAttach: true
 
   readonly property var mainInstance: pluginApi?.mainInstance
-  readonly property var stopData1: mainInstance?.stopData1 ?? null
-  readonly property var stopData2: mainInstance?.stopData2 ?? null
+  readonly property var stopsData: mainInstance?.stopsData ?? []
   readonly property var connections: mainInstance?.connections ?? []
   readonly property bool isRefreshing: mainInstance?.isRefreshing ?? false
   readonly property bool hasError: mainInstance?.hasError ?? false
   readonly property string lastUpdated: mainInstance?.lastUpdated ?? ""
+  readonly property var profiles: mainInstance?.profiles ?? []
+  readonly property int activeProfile: mainInstance?.activeProfile ?? -1
+  readonly property var trackedNotification: mainInstance?.trackedNotification ?? null
 
   readonly property bool panelReady: pluginApi !== null && mainInstance !== null && mainInstance !== undefined
-  readonly property bool hasStop2: stopData2 !== null && (stopData2.code || "") !== ""
+  readonly property bool hasStops: stopsData.length > 0
+  readonly property bool hasAnyData: {
+    if (!hasStops) return false
+    for (var i = 0; i < stopsData.length; i++) {
+      var lines = stopsData[i].lines || []
+      for (var j = 0; j < lines.length; j++) {
+        if ((lines[j].arrivals || []).length > 0) return true
+      }
+    }
+    return false
+  }
 
   property real contentPreferredWidth: panelReady ? 380 * Style.uiScaleRatio : 0
   property real contentPreferredHeight: {
     if (!panelReady) return 0
     var h = 60 // header
-    var s1Lines = stopData1 ? (stopData1.lines || []).length : 0
-    var s2Lines = hasStop2 ? (stopData2.lines || []).length : 0
-    h += 30 + s1Lines * 36 // stop1 header + lines
-    if (hasStop2) h += 30 + s2Lines * 36 // stop2 header + lines
-    if (connections.length > 0) h += 30 + connections.length * 50 // connections
-    return Math.min(600, Math.max(150, h)) * Style.uiScaleRatio
+    if (!hasStops) return Math.max(150, h + 80) * Style.uiScaleRatio
+
+    for (var i = 0; i < stopsData.length; i++) {
+      var sLines = stopsData[i].lines || []
+      h += 30 + sLines.length * 48 // stop header + lines (taller for destination row)
+    }
+    if (connections.length > 0) h += 30 + connections.length * 50
+    return Math.min(700, Math.max(150, h)) * Style.uiScaleRatio
   }
 
   anchors.fill: parent
@@ -72,12 +86,73 @@ Item {
               color: Color.mPrimary
             }
 
+            // Profile dropdown
             NText {
-              text: "Bus Tracker"
+              visible: root.profiles.length <= 1
+              text: root.profiles.length === 1 ? (root.profiles[0].name || "Bus Tracker") : "Bus Tracker"
               pointSize: Style.fontSizeL
               font.weight: Style.fontWeightBold
               color: Color.mOnSurface
               Layout.fillWidth: true
+            }
+
+            Rectangle {
+              visible: root.profiles.length > 1
+              Layout.fillWidth: true
+              implicitHeight: profileDropdown.implicitHeight
+              color: "transparent"
+
+              RowLayout {
+                id: profileDropdown
+                anchors.left: parent.left
+                anchors.right: parent.right
+                spacing: Style.marginS
+
+                NText {
+                  text: (root.activeProfile >= 0 && root.activeProfile < root.profiles.length)
+                        ? (root.profiles[root.activeProfile].name || "Profile " + (root.activeProfile + 1))
+                        : "Bus Tracker"
+                  pointSize: Style.fontSizeL
+                  font.weight: Style.fontWeightBold
+                  color: Color.mOnSurface
+                }
+
+                NIcon {
+                  icon: "expand-more"
+                  pointSize: Style.fontSizeS
+                  color: Color.mOnSurfaceVariant
+                }
+
+                Item { Layout.fillWidth: true }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: profileMenu.open()
+                }
+              }
+
+              NPopupContextMenu {
+                id: profileMenu
+                model: {
+                  var items = []
+                  for (var i = 0; i < root.profiles.length; i++) {
+                    items.push({
+                      "label": root.profiles[i].name || ("Profile " + (i + 1)),
+                      "action": "profile_" + i,
+                      "icon": i === root.activeProfile ? "check" : ""
+                    })
+                  }
+                  return items
+                }
+                onTriggered: action => {
+                  profileMenu.close()
+                  var idx = parseInt(action.replace("profile_", ""))
+                  if (!isNaN(idx) && root.mainInstance) {
+                    root.mainInstance.switchProfile(idx)
+                  }
+                }
+              }
             }
 
             NText {
@@ -100,6 +175,14 @@ Item {
               icon: "refresh"
               pointSize: Style.fontSizeS
               color: Color.mOnSurfaceVariant
+
+              RotationAnimation on rotation {
+                from: 0
+                to: 360
+                duration: 1000
+                loops: Animation.Infinite
+                running: root.isRefreshing
+              }
             }
           }
 
@@ -109,11 +192,54 @@ Item {
             color: Qt.alpha(Color.mOnSurface, 0.1)
           }
 
+          // No data state
+          ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !root.hasStops || (!root.hasAnyData && !root.hasError)
+            spacing: Style.marginM
+
+            Item { Layout.fillHeight: true }
+
+            NIcon {
+              Layout.alignment: Qt.AlignHCenter
+              icon: root.hasStops ? "schedule" : "add-circle-outline"
+              pointSize: 32
+              color: Qt.alpha(Color.mOnSurfaceVariant, 0.3)
+            }
+
+            NText {
+              Layout.alignment: Qt.AlignHCenter
+              text: {
+                if (!root.hasStops) return "No stops configured"
+                var now = new Date()
+                var hour = now.getHours()
+                var mi = root.mainInstance
+                if (mi && (hour < mi.activeHoursStart || hour >= mi.activeHoursEnd))
+                  return "Outside active hours (" + mi.activeHoursStart + ":00–" + mi.activeHoursEnd + ":00)"
+                return "No buses right now"
+              }
+              pointSize: Style.fontSizeS
+              color: Qt.alpha(Color.mOnSurfaceVariant, 0.5)
+            }
+
+            NText {
+              Layout.alignment: Qt.AlignHCenter
+              visible: !root.hasStops
+              text: "Open settings to add stops"
+              pointSize: Style.fontSizeXS
+              color: Qt.alpha(Color.mOnSurfaceVariant, 0.3)
+            }
+
+            Item { Layout.fillHeight: true }
+          }
+
           // Scrollable content
           Flickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
+            visible: root.hasStops && (root.hasAnyData || root.hasError)
             contentWidth: width
             contentHeight: mainColumn.implicitHeight
             interactive: contentHeight > height
@@ -124,101 +250,167 @@ Item {
               width: parent.width
               spacing: Style.marginM
 
-              // ── Stop 1 ──────────────────────────────────
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Style.marginS
-                visible: root.stopData1 !== null
+              // Dynamic stops
+              Repeater {
+                model: root.stopsData
 
-                NText {
-                  text: root.stopData1?.name || ("Stop " + (root.stopData1?.code || ""))
-                  pointSize: Style.fontSizeS
-                  font.weight: Style.fontWeightBold
-                  color: Color.mPrimary
-                }
+                delegate: ColumnLayout {
+                  id: stopDelegate
+                  Layout.fillWidth: true
+                  spacing: Style.marginS
 
-                Repeater {
-                  model: root.stopData1?.lines || []
+                  readonly property var stopInfo: modelData
+                  readonly property int stopIndex: index
+                  readonly property bool isFirstStop: index === 0
 
-                  delegate: Item {
-                    id: s1LineDelegate
+                  // Separator between stops
+                  Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: s1LineRow.implicitHeight
-                    readonly property var lineData: modelData
+                    Layout.preferredHeight: 1
+                    visible: stopDelegate.stopIndex > 0
+                    color: Qt.alpha(Color.mOnSurface, 0.1)
+                  }
 
-                    RowLayout {
-                      id: s1LineRow
-                      anchors.left: parent.left
-                      anchors.right: parent.right
-                      spacing: Style.marginS
+                  NText {
+                    text: stopDelegate.stopInfo.name || ("Stop " + (stopDelegate.stopInfo.code || ""))
+                    pointSize: Style.fontSizeS
+                    font.weight: Style.fontWeightBold
+                    color: stopDelegate.isFirstStop ? Color.mPrimary : Color.mOnSurfaceVariant
+                  }
 
-                      Rectangle {
-                        implicitWidth: Math.max(s1Badge.implicitWidth + Style.marginS * 2, 40)
-                        implicitHeight: s1Badge.implicitHeight + 4
-                        radius: Style.radiusS
-                        color: Qt.alpha(s1LineDelegate.lineData.active ? Color.mPrimary : Color.mOnSurfaceVariant, s1LineDelegate.lineData.active ? 0.15 : 0.08)
+                  Repeater {
+                    model: stopDelegate.stopInfo.lines || []
 
-                        NText {
-                          id: s1Badge
-                          anchors.centerIn: parent
-                          text: s1LineDelegate.lineData.line || ""
-                          pointSize: Style.fontSizeS
-                          font.weight: Style.fontWeightBold
-                          color: s1LineDelegate.lineData.active ? Color.mPrimary : Qt.alpha(Color.mOnSurfaceVariant, 0.5)
-                          font.family: Settings.data.ui.fontFixed
-                        }
-                      }
+                    delegate: Item {
+                      id: lineDelegate
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: lineColumn.implicitHeight
+                      readonly property var lineData: modelData
+                      readonly property int lineIdx: index
 
-                      NText {
-                        visible: (s1LineDelegate.lineData.destination || "") !== ""
-                        text: "→ " + (s1LineDelegate.lineData.destination || "")
-                        pointSize: Style.fontSizeXS
-                        color: Color.mOnSurfaceVariant
-                        elide: Text.ElideRight
-                        Layout.maximumWidth: 100
-                      }
+                      ColumnLayout {
+                        id: lineColumn
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 2
 
-                      Repeater {
-                        model: s1LineDelegate.lineData.arrivals || []
+                        RowLayout {
+                          spacing: Style.marginS
 
-                        delegate: Rectangle {
-                          readonly property var arr: modelData
-                          implicitWidth: s1Time.implicitWidth + Style.marginS * 2
-                          implicitHeight: s1Time.implicitHeight + 4
-                          radius: Style.radiusS
-                          color: Qt.alpha(arr.realtime ? Color.mPrimary : Color.mOnSurfaceVariant, arr.realtime ? 0.12 : 0.06)
+                          Rectangle {
+                            implicitWidth: Math.max(lineBadge.implicitWidth + Style.marginS * 2, 40)
+                            implicitHeight: lineBadge.implicitHeight + 4
+                            radius: Style.radiusS
+                            color: Qt.alpha(
+                              lineDelegate.lineData.active
+                                ? (stopDelegate.isFirstStop ? Color.mPrimary : Color.mTertiary)
+                                : Color.mOnSurfaceVariant,
+                              lineDelegate.lineData.active ? 0.15 : 0.08
+                            )
+
+                            NText {
+                              id: lineBadge
+                              anchors.centerIn: parent
+                              text: lineDelegate.lineData.line || ""
+                              pointSize: Style.fontSizeS
+                              font.weight: Style.fontWeightBold
+                              color: lineDelegate.lineData.active
+                                ? (stopDelegate.isFirstStop ? Color.mPrimary : Color.mTertiary)
+                                : Qt.alpha(Color.mOnSurfaceVariant, 0.5)
+                              font.family: Settings.data.ui.fontFixed
+                            }
+                          }
+
+                          Repeater {
+                            model: lineDelegate.lineData.arrivals || []
+
+                            delegate: Rectangle {
+                              id: arrivalChip
+                              readonly property var arr: modelData
+                              readonly property int arrIdx: index
+                              readonly property bool isTracked: {
+                                var tn = root.trackedNotification
+                                if (!tn) return false
+                                return tn.line === lineDelegate.lineData.line
+                                    && tn.stopIndex === stopDelegate.stopIndex
+                                    && tn.arrivalIndex === arrIdx
+                              }
+
+                              implicitWidth: arrTime.implicitWidth + Style.marginS * 2
+                              implicitHeight: arrTime.implicitHeight + 4
+                              radius: Style.radiusS
+                              border.width: isTracked ? 2 : 0
+                              border.color: "#F59E0B"
+                              color: {
+                                if (isTracked) return Qt.alpha("#F59E0B", 0.2)
+                                var accent = stopDelegate.isFirstStop ? Color.mPrimary : Color.mTertiary
+                                return Qt.alpha(arr.realtime ? accent : Color.mOnSurfaceVariant, arr.realtime ? 0.12 : 0.06)
+                              }
+
+                              NText {
+                                id: arrTime
+                                anchors.centerIn: parent
+                                text: parent.arr.eta === 0 ? "Now" : parent.arr.eta + "m"
+                                pointSize: Style.fontSizeS
+                                font.weight: Style.fontWeightMedium
+                                color: {
+                                  if (parent.isTracked) return "#F59E0B"
+                                  if (!parent.arr.realtime) return Qt.alpha(Color.mOnSurfaceVariant, 0.6)
+                                  if (parent.arr.eta <= 2) return Color.mError
+                                  if (parent.arr.eta <= 5) return "#F59E0B"
+                                  var accent = stopDelegate.isFirstStop ? Color.mPrimary : Color.mTertiary
+                                  return accent
+                                }
+                                font.family: Settings.data.ui.fontFixed
+                              }
+
+                              MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                  if (!root.mainInstance) return
+                                  if (arrivalChip.isTracked) {
+                                    root.mainInstance.clearNotification()
+                                  } else {
+                                    root.mainInstance.setNotification(
+                                      lineDelegate.lineData.line,
+                                      stopDelegate.stopIndex,
+                                      arrivalChip.arrIdx,
+                                      arrivalChip.arr.eta
+                                    )
+                                  }
+                                }
+                              }
+                            }
+                          }
 
                           NText {
-                            id: s1Time
-                            anchors.centerIn: parent
-                            text: parent.arr.eta === 0 ? "Now" : parent.arr.eta + "m"
-                            pointSize: Style.fontSizeS
-                            font.weight: Style.fontWeightMedium
-                            color: {
-                              if (!parent.arr.realtime) return Qt.alpha(Color.mOnSurfaceVariant, 0.6)
-                              if (parent.arr.eta <= 2) return Color.mError
-                              if (parent.arr.eta <= 5) return "#F59E0B"
-                              return Color.mPrimary
-                            }
-                            font.family: Settings.data.ui.fontFixed
+                            visible: (lineDelegate.lineData.arrivals || []).length === 0
+                            text: "no service"
+                            pointSize: Style.fontSizeXS
+                            color: Qt.alpha(Color.mOnSurfaceVariant, 0.4)
                           }
+
+                          Item { Layout.fillWidth: true }
+                        }
+
+                        // Destination row
+                        NText {
+                          visible: (lineDelegate.lineData.destination || "") !== ""
+                          text: "→ " + (lineDelegate.lineData.destination || "")
+                          pointSize: Style.fontSizeXS
+                          color: Qt.alpha(Color.mOnSurfaceVariant, 0.6)
+                          Layout.leftMargin: 4
+                          elide: Text.ElideRight
+                          Layout.maximumWidth: lineColumn.width - 8
                         }
                       }
-
-                      NText {
-                        visible: (s1LineDelegate.lineData.arrivals || []).length === 0
-                        text: "no service"
-                        pointSize: Style.fontSizeXS
-                        color: Qt.alpha(Color.mOnSurfaceVariant, 0.4)
-                      }
-
-                      Item { Layout.fillWidth: true }
                     }
                   }
                 }
               }
 
-              // ── Connections ──────────────────────────────
+              // Connections
               ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Style.marginS
@@ -255,7 +447,6 @@ Item {
                       RowLayout {
                         spacing: Style.marginS
 
-                        // Board line badge
                         Rectangle {
                           implicitWidth: connBoardText.implicitWidth + Style.marginS * 2
                           implicitHeight: connBoardText.implicitHeight + 4
@@ -280,7 +471,6 @@ Item {
                           font.family: Settings.data.ui.fontFixed
                         }
 
-                        // Catchable lines
                         Repeater {
                           model: connDelegate.conn.catchable || []
 
@@ -303,106 +493,6 @@ Item {
                           }
                         }
                       }
-                    }
-                  }
-                }
-              }
-
-              // ── Stop 2 ──────────────────────────────────
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Style.marginS
-                visible: root.hasStop2
-
-                Rectangle {
-                  Layout.fillWidth: true
-                  Layout.preferredHeight: 1
-                  color: Qt.alpha(Color.mOnSurface, 0.1)
-                }
-
-                NText {
-                  text: root.stopData2?.name || ("Stop " + (root.stopData2?.code || ""))
-                  pointSize: Style.fontSizeS
-                  font.weight: Style.fontWeightBold
-                  color: Color.mOnSurfaceVariant
-                }
-
-                Repeater {
-                  model: root.stopData2?.lines || []
-
-                  delegate: Item {
-                    id: s2LineDelegate
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: s2LineRow.implicitHeight
-                    readonly property var lineData: modelData
-
-                    RowLayout {
-                      id: s2LineRow
-                      anchors.left: parent.left
-                      anchors.right: parent.right
-                      spacing: Style.marginS
-
-                      Rectangle {
-                        implicitWidth: Math.max(s2Badge.implicitWidth + Style.marginS * 2, 40)
-                        implicitHeight: s2Badge.implicitHeight + 4
-                        radius: Style.radiusS
-                        color: Qt.alpha(s2LineDelegate.lineData.active ? Color.mTertiary : Color.mOnSurfaceVariant, s2LineDelegate.lineData.active ? 0.15 : 0.08)
-
-                        NText {
-                          id: s2Badge
-                          anchors.centerIn: parent
-                          text: s2LineDelegate.lineData.line || ""
-                          pointSize: Style.fontSizeS
-                          font.weight: Style.fontWeightBold
-                          color: s2LineDelegate.lineData.active ? Color.mTertiary : Qt.alpha(Color.mOnSurfaceVariant, 0.5)
-                          font.family: Settings.data.ui.fontFixed
-                        }
-                      }
-
-                      NText {
-                        visible: (s2LineDelegate.lineData.destination || "") !== ""
-                        text: "→ " + (s2LineDelegate.lineData.destination || "")
-                        pointSize: Style.fontSizeXS
-                        color: Color.mOnSurfaceVariant
-                        elide: Text.ElideRight
-                        Layout.maximumWidth: 100
-                      }
-
-                      Repeater {
-                        model: s2LineDelegate.lineData.arrivals || []
-
-                        delegate: Rectangle {
-                          readonly property var arr: modelData
-                          implicitWidth: s2Time.implicitWidth + Style.marginS * 2
-                          implicitHeight: s2Time.implicitHeight + 4
-                          radius: Style.radiusS
-                          color: Qt.alpha(arr.realtime ? Color.mTertiary : Color.mOnSurfaceVariant, arr.realtime ? 0.12 : 0.06)
-
-                          NText {
-                            id: s2Time
-                            anchors.centerIn: parent
-                            text: parent.arr.eta === 0 ? "Now" : parent.arr.eta + "m"
-                            pointSize: Style.fontSizeS
-                            font.weight: Style.fontWeightMedium
-                            color: {
-                              if (!parent.arr.realtime) return Qt.alpha(Color.mOnSurfaceVariant, 0.6)
-                              if (parent.arr.eta <= 2) return Color.mError
-                              if (parent.arr.eta <= 5) return "#F59E0B"
-                              return Color.mTertiary
-                            }
-                            font.family: Settings.data.ui.fontFixed
-                          }
-                        }
-                      }
-
-                      NText {
-                        visible: (s2LineDelegate.lineData.arrivals || []).length === 0
-                        text: "no service"
-                        pointSize: Style.fontSizeXS
-                        color: Qt.alpha(Color.mOnSurfaceVariant, 0.4)
-                      }
-
-                      Item { Layout.fillWidth: true }
                     }
                   }
                 }

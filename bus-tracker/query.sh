@@ -1,43 +1,55 @@
 #!/usr/bin/env bash
-# Query bus arrivals for two linked stops with connection analysis.
+# Query bus arrivals for N linked stops with connection analysis.
 # Uses the official MOT bus.gov.il API for real-time data.
-# Usage: query.sh <stop1> <lines1> <stop2> <lines2>
-# Output: JSON with both stops + transfer connections.
+# Usage: query.sh '<json>'
+# Input JSON: {"stops": [{"code":"...", "lines":["..."]}, ...], "walkTime": 10}
+# Output: JSON with all stops + transfer connections between consecutive pairs.
 
 set -euo pipefail
 
-STOP1="${1:?stop1 required}"
-LINES1="${2:-}"
-STOP2="${3:-}"
-LINES2="${4:-}"
+INPUT="${1:?JSON input required}"
 
 API="https://bus.gov.il/WebApi/api/passengerinfo/GetRealtimeBusLineListByBustop"
 
-# Fetch stops in parallel
-TMP1=$(mktemp)
-TMP2=$(mktemp)
-trap 'rm -f "$TMP1" "$TMP2"' EXIT
+# Parse stop codes from input
+STOP_CODES=$(python3 -c "
+import json, sys
+data = json.loads(sys.argv[1])
+for s in data.get('stops', []):
+    print(s.get('code', ''))
+" "$INPUT")
 
-curl -sf -m 10 "${API}/${STOP1}/he/false" > "$TMP1" 2>/dev/null &
-PID1=$!
+# Fetch all stops in parallel
+TMPDIR_Q=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_Q"' EXIT
 
-if [ -n "$STOP2" ]; then
-  curl -sf -m 10 "${API}/${STOP2}/he/false" > "$TMP2" 2>/dev/null &
-  PID2=$!
-else
-  echo '[]' > "$TMP2"
-  PID2=""
-fi
+PIDS=()
+IDX=0
+while IFS= read -r code; do
+  if [ -n "$code" ]; then
+    curl -sf -m 10 "${API}/${code}/he/false" > "${TMPDIR_Q}/stop_${IDX}.json" 2>/dev/null &
+    PIDS+=($!)
+  else
+    echo '[]' > "${TMPDIR_Q}/stop_${IDX}.json"
+  fi
+  IDX=$((IDX + 1))
+done <<< "$STOP_CODES"
 
-wait "$PID1" 2>/dev/null || true
-[ -n "$PID2" ] && wait "$PID2" 2>/dev/null || true
+for pid in "${PIDS[@]}"; do
+  wait "$pid" 2>/dev/null || true
+done
 
 python3 -c "
-import json, sys
+import json, sys, os
 from datetime import datetime, timezone, timedelta
 
 tz_il = timezone(timedelta(hours=3))
 now = datetime.now(tz_il)
+
+input_data = json.loads(sys.argv[1])
+stops_config = input_data.get('stops', [])
+walk_time = input_data.get('walkTime', 5)
+tmpdir = sys.argv[2]
 
 def load_file(path):
     try:
@@ -53,7 +65,7 @@ def get_stop_name(data):
     return ''
 
 def parse_entries(data, filter_lines):
-    requested = set(filter_lines.split(',')) if filter_lines else set()
+    requested = set(filter_lines) if filter_lines else set()
     by_line = {}
 
     for entry in data:
@@ -65,7 +77,6 @@ def parse_entries(data, filter_lines):
         realtime = entry.get('ResponseSuccesed', False)
 
         dest = entry.get('Description', '')
-        # Extract destination part after ' - '
         if ' - ' in dest:
             dest = dest.split(' - ', 1)[1]
 
@@ -76,7 +87,6 @@ def parse_entries(data, filter_lines):
                 'eta': mins,
                 'etaTime': eta_dt.strftime('%H:%M'),
                 'realtime': realtime,
-                'vehicleRef': ''
             })
 
         by_line[line] = {
@@ -99,71 +109,74 @@ def build_lines(by_line, requested_order):
         })
     return lines
 
-# Parse both stops
-data1 = load_file('$TMP1')
-data2 = load_file('$TMP2')
+# Parse all stops
+all_stops = []
+all_by_line = []
 
-lines1_filter = '${LINES1}'
-lines2_filter = '${LINES2}'
+for i, sc in enumerate(stops_config):
+    data = load_file(os.path.join(tmpdir, f'stop_{i}.json'))
+    filter_lines = sc.get('lines', [])
+    by_line = parse_entries(data, filter_lines)
+    order = filter_lines if filter_lines else []
 
-by_line1 = parse_entries(data1, lines1_filter)
-by_line2 = parse_entries(data2, lines2_filter) if '${STOP2}' else {}
+    all_stops.append({
+        'code': sc.get('code', ''),
+        'name': get_stop_name(data) or sc.get('name', ''),
+        'lines': build_lines(by_line, order)
+    })
+    all_by_line.append(by_line)
 
-order1 = [l.strip() for l in lines1_filter.split(',') if l.strip()] if lines1_filter else []
-order2 = [l.strip() for l in lines2_filter.split(',') if l.strip()] if lines2_filter else []
-
-# Connection analysis: find shared lines between stops
+# Connection analysis between consecutive stop pairs
 connections = []
-direct_lines = set(order1) if order1 else set(by_line1.keys())
-if by_line1 and by_line2:
-    for line, ld1 in by_line1.items():
-        if not ld1['arrivals']:
+
+for pair_idx in range(len(all_by_line) - 1):
+    by_line_a = all_by_line[pair_idx]
+    by_line_b = all_by_line[pair_idx + 1]
+    sc_a = stops_config[pair_idx]
+    sc_b = stops_config[pair_idx + 1]
+
+    direct_lines_a = set(sc_a.get('lines', [])) if sc_a.get('lines') else set(by_line_a.keys())
+
+    for line, ld_a in by_line_a.items():
+        if not ld_a['arrivals']:
             continue
-        # Estimate travel time: if same line serves both stops, use ETA difference
-        if line in by_line2 and by_line2[line]['arrivals']:
-            board_eta = ld1['arrivals'][0]['eta']
-            arrive_eta = by_line2[line]['arrivals'][0]['eta']
+        if line in by_line_b and by_line_b[line]['arrivals']:
+            board_eta = ld_a['arrivals'][0]['eta']
+            arrive_eta = by_line_b[line]['arrivals'][0]['eta']
             travel = arrive_eta - board_eta
             if travel > 0:
-                arrival_at_stop2 = board_eta + travel
+                arrival_at_b = board_eta + travel
                 catchable = []
-                for cline, cld in by_line2.items():
-                    if cline in direct_lines:
+                for cline, cld in by_line_b.items():
+                    if cline in direct_lines_a:
                         continue
                     for arr in cld['arrivals']:
-                        if arr['eta'] >= arrival_at_stop2 + 1:
+                        if arr['eta'] >= arrival_at_b + walk_time:
                             catchable.append({
                                 'line': cline,
                                 'eta': arr['eta'],
                                 'etaTime': arr['etaTime'],
-                                'wait': arr['eta'] - arrival_at_stop2
+                                'wait': arr['eta'] - arrival_at_b
                             })
                             break
                 catchable.sort(key=lambda c: c['eta'])
                 connections.append({
+                    'fromStop': pair_idx,
+                    'toStop': pair_idx + 1,
                     'boardLine': line,
                     'boardEta': board_eta,
-                    'boardTime': ld1['arrivals'][0]['etaTime'],
+                    'boardTime': ld_a['arrivals'][0]['etaTime'],
                     'travelMins': travel,
-                    'arriveStop2': arrival_at_stop2,
+                    'arriveStop': arrival_at_b,
                     'catchable': catchable
                 })
 
 connections.sort(key=lambda c: c['boardEta'])
 
 result = {
-    'stop1': {
-        'code': '${STOP1}',
-        'name': get_stop_name(data1),
-        'lines': build_lines(by_line1, order1)
-    },
-    'stop2': {
-        'code': '${STOP2}',
-        'name': get_stop_name(data2),
-        'lines': build_lines(by_line2, order2)
-    } if '${STOP2}' else None,
+    'stops': all_stops,
     'connections': connections
 }
 
-print(json.dumps(result))
-"
+print(json.dumps(result, ensure_ascii=False))
+" "$INPUT" "$TMPDIR_Q"

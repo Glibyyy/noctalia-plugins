@@ -17,11 +17,12 @@ Item {
 
   readonly property var mainInstance: pluginApi?.mainInstance
   readonly property int nextEta: mainInstance?.nextEta ?? -1
+  readonly property string nextLine: mainInstance?.nextLine ?? ""
   readonly property bool hasData: nextEta >= 0
   readonly property bool hasError: mainInstance?.hasError ?? false
 
   readonly property real contentWidth: {
-    if (!hasData) return Style.capsuleHeight
+    if (!hasData && !hasError) return Style.capsuleHeight
     return contentRow.implicitWidth + Style.marginM * 2
   }
   readonly property real contentHeight: Style.capsuleHeight
@@ -56,7 +57,7 @@ Item {
 
       NText {
         visible: root.hasData && !root.hasError
-        text: root.nextEta + "m"
+        text: root.nextLine + " " + root.nextEta + "m"
         pointSize: Style.fontSizeS
         font.weight: Style.fontWeightBold
         color: {

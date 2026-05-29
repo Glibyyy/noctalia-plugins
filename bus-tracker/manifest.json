@@ -1,11 +1,11 @@
 {
   "id": "bus-tracker",
   "name": "Bus Tracker",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "minNoctaliaVersion": "4.0.0",
   "author": "gliby",
   "license": "MIT",
-  "description": "Live Israeli bus arrivals with dual-stop transfer analysis. Shows real-time ETAs, connection timing, and catchable transfers.",
+  "description": "Dynamic Israeli bus tracker with profiles, multi-stop transfer analysis, stop search, and arrival notifications.",
   "tags": ["Bar", "Panel"],
   "entryPoints": {
     "main": "Main.qml",
@@ -18,15 +18,12 @@
   },
   "metadata": {
     "defaultSettings": {
-      "stop1": {
-        "code": "21477",
-        "lines": ["33", "32", "54"]
-      },
-      "stop2": {
-        "code": "21450",
-        "lines": ["32", "33", "42", "54", "525", "531", "621"]
-      },
-      "refreshInterval": 30000
+      "profiles": [],
+      "activeProfile": -1,
+      "refreshInterval": 30000,
+      "activeHoursStart": 9,
+      "activeHoursEnd": 20,
+      "notifyBeforeMinutes": 10
     }
   }
 }
