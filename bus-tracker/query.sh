@@ -160,16 +160,17 @@ for pair_idx in range(len(all_by_line) - 1):
                             })
                             break
                 catchable.sort(key=lambda c: c['eta'])
-                connections.append({
-                    'fromStop': pair_idx,
-                    'toStop': pair_idx + 1,
-                    'boardLine': line,
-                    'boardEta': board_eta,
-                    'boardTime': ld_a['arrivals'][0]['etaTime'],
-                    'travelMins': travel,
-                    'arriveStop': arrival_at_b,
-                    'catchable': catchable
-                })
+                if catchable:
+                    connections.append({
+                        'fromStop': pair_idx,
+                        'toStop': pair_idx + 1,
+                        'boardLine': line,
+                        'boardEta': board_eta,
+                        'boardTime': ld_a['arrivals'][0]['etaTime'],
+                        'travelMins': travel,
+                        'arriveStop': arrival_at_b,
+                        'catchable': catchable
+                    })
 
 connections.sort(key=lambda c: c['boardEta'])
 

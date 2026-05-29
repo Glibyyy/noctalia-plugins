@@ -414,7 +414,12 @@ Item {
               ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Style.marginS
-                visible: root.connections.length > 0
+                visible: {
+                  for (var i = 0; i < root.connections.length; i++) {
+                    if ((root.connections[i].catchable || []).length > 0) return true
+                  }
+                  return false
+                }
 
                 Rectangle {
                   Layout.fillWidth: true
@@ -435,7 +440,8 @@ Item {
                   delegate: Item {
                     id: connDelegate
                     Layout.fillWidth: true
-                    Layout.preferredHeight: connRow.implicitHeight
+                    Layout.preferredHeight: (connDelegate.conn.catchable || []).length > 0 ? connRow.implicitHeight : 0
+                    visible: (connDelegate.conn.catchable || []).length > 0
                     readonly property var conn: modelData
 
                     ColumnLayout {
