@@ -939,7 +939,7 @@ Item {
           onClicked: {
             var opts = {
               name: newConnectionName.text.trim(),
-              loginServer: newLoginServer.text.trim(),
+              loginServer: (function(s) { if (!s) return ""; s = s.replace(/\/+$/, ""); return /^https?:\/\//.test(s) ? s : "https://" + s })(newLoginServer.text.trim()),
               authKey: newAuthKey.text.trim(),
               hostname: newHostname.text.trim(),
               advertiseRoutes: newAdvertiseRoutes.text.trim(),
