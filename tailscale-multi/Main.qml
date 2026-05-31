@@ -202,7 +202,31 @@ Item {
     return match ? match[1] : ""
   }
 
+  // ── Server validation ───────────────────────────────────────────
+
+  signal serverCheckResult(string status, int httpCode, string server)
+
+  function checkServer(url) {
+    checkProcess.command = ["sudo", "tailscale-dynamic-helper", "check", url]
+    checkProcess.running = true
+  }
+
   // ── Processes ────────────────────────────────────────────────────
+
+  Process {
+    id: checkProcess
+    stdout: StdioCollector {}
+    stderr: StdioCollector {}
+    onExited: function(exitCode) {
+      var output = String(stdout.text || "").trim()
+      try {
+        var result = JSON.parse(output)
+        root.serverCheckResult(result.status || "error", result.http_code || 0, result.server || "")
+      } catch (e) {
+        root.serverCheckResult("error", 0, "")
+      }
+    }
+  }
 
   Process {
     id: actionProcess

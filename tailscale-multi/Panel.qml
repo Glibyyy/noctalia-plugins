@@ -46,6 +46,30 @@ Item {
     contentPreferredHeight = _calcHeight()
   }
 
+  // ── Instance order (persisted, drag-to-reorder) ───────────────────
+  property int _orderVersion: 0
+  property int dragSourceIndex: -1
+  property int dragTargetIndex: -1
+  property bool dragActive: false
+  property real dragStartY: 0
+  property real dragOffsetY: 0
+  property real draggedItemHeight: 0
+  readonly property int dragThreshold: 8
+
+  function commitReorder(fromIndex, toIndex) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+    var current = processedInstances.map(function(inst) { return inst.name })
+    if (fromIndex >= current.length || toIndex >= current.length) return
+    var item = current.splice(fromIndex, 1)[0]
+    current.splice(toIndex, 0, item)
+    if (pluginApi?.pluginSettings) {
+      pluginApi.pluginSettings.instanceOrder = current
+      pluginApi.saveSettings()
+    }
+    _orderVersion++
+    contentPreferredHeight = _calcHeight()
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────
   function filterIPv4(ips) {
     return mainInstance?.filterIPv4(ips) || []
@@ -135,6 +159,20 @@ Item {
         sortedPeers: peers
       })
     }
+
+    // Sort by saved order
+    void(root._orderVersion)
+    var order = pluginApi?.pluginSettings?.instanceOrder || []
+    if (order.length > 0) {
+      result.sort(function(a, b) {
+        var ia = order.indexOf(a.name)
+        var ib = order.indexOf(b.name)
+        if (ia === -1) ia = 9999
+        if (ib === -1) ib = 9999
+        return ia - ib
+      })
+    }
+
     return result
   }
 
@@ -455,15 +493,41 @@ Item {
               spacing: Style.marginL
 
               Repeater {
+                id: instanceRepeater
                 model: root.processedInstances
 
                 delegate: ColumnLayout {
                   id: instanceDelegate
                   Layout.fillWidth: true
                   spacing: Style.marginS
+                  z: root.dragActive && root.dragSourceIndex === instanceDelegate.instanceIndex ? 10 : 0
 
                   readonly property var inst: modelData
+                  readonly property int instanceIndex: index
                   readonly property bool collapsed: root.collapseVersion >= 0 && root.collapsedInstances[inst.name] === true
+
+                  // ── Live drag transform ────────────────────────
+                  property real dragShiftTarget: {
+                    if (!root.dragActive) return 0
+                    var si = root.dragSourceIndex
+                    var ti = root.dragTargetIndex
+                    var idx = instanceDelegate.instanceIndex
+                    if (idx === si) return root.dragOffsetY
+                    var shiftAmount = root.draggedItemHeight + instanceColumn.spacing
+                    if (si < ti && idx > si && idx <= ti) return -shiftAmount
+                    if (si > ti && idx >= ti && idx < si) return shiftAmount
+                    return 0
+                  }
+
+                  property real dragShiftAnimated: 0
+                  onDragShiftTargetChanged: dragShiftAnimated = dragShiftTarget
+
+                  Behavior on dragShiftAnimated {
+                    enabled: root.dragActive && instanceDelegate.instanceIndex !== root.dragSourceIndex
+                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                  }
+
+                  transform: Translate { y: instanceDelegate.dragShiftAnimated }
 
                   // ── Instance header ──────────────────────────
                   MouseArea {
@@ -471,12 +535,60 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: headerContent.implicitHeight
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: root.dragActive ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: function(mouse) {
+                    preventStealing: true
+
+                    property bool didDrag: false
+
+                    onPressed: function(mouse) {
                       if (mouse.button === Qt.LeftButton) {
+                        headerMouse.didDrag = false
+                        root.dragSourceIndex = instanceDelegate.instanceIndex
+                        root.dragStartY = mapToItem(instanceColumn, 0, mouse.y).y
+                        root.draggedItemHeight = instanceDelegate.height
+                        root.dragOffsetY = 0
+                      }
+                    }
+
+                    onPositionChanged: function(mouse) {
+                      if (root.dragSourceIndex < 0) return
+                      var posY = mapToItem(instanceColumn, 0, mouse.y).y
+                      var offset = posY - root.dragStartY
+                      if (!root.dragActive) {
+                        if (Math.abs(offset) > root.dragThreshold) {
+                          root.dragActive = true
+                          headerMouse.didDrag = true
+                        }
+                        return
+                      }
+                      root.dragOffsetY = offset
+                      var step = root.draggedItemHeight + instanceColumn.spacing
+                      var steps = Math.round(offset / step)
+                      root.dragTargetIndex = Math.max(0, Math.min(
+                        root.processedInstances.length - 1,
+                        root.dragSourceIndex + steps
+                      ))
+                    }
+
+                    onReleased: function(mouse) {
+                      if (root.dragActive) {
+                        root.commitReorder(root.dragSourceIndex, root.dragTargetIndex)
+                      }
+                      var wasDrag = headerMouse.didDrag
+                      root.dragActive = false
+                      root.dragSourceIndex = -1
+                      root.dragTargetIndex = -1
+                      root.dragOffsetY = 0
+                      headerMouse.didDrag = false
+
+                      if (!wasDrag && mouse.button === Qt.LeftButton) {
                         root.toggleCollapsed(instanceDelegate.inst.name)
-                      } else if (mouse.button === Qt.RightButton) {
+                      }
+                    }
+
+                    onClicked: function(mouse) {
+                      if (mouse.button === Qt.RightButton) {
                         root.openInstanceContextMenu(instanceDelegate.inst, headerMouse, mouse.x, mouse.y)
                       }
                     }
@@ -744,6 +856,45 @@ Item {
           id: newLoginServer
           Layout.fillWidth: true
           placeholderText: "Login server (blank = tailscale.com)"
+          onTextChanged: testServerBtn.serverCheckState = ""
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          visible: newLoginServer.text.trim() !== ""
+          spacing: Style.marginS
+
+          NButton {
+            id: testServerBtn
+            text: serverCheckState === "" ? "Test Server"
+              : serverCheckState === "checking" ? "Checking..."
+              : serverCheckState === "ok" ? "Reachable"
+              : "Unreachable"
+            icon: serverCheckState === "" ? "plug"
+              : serverCheckState === "checking" ? "loader"
+              : serverCheckState === "ok" ? "circle-check"
+              : "circle-x"
+            enabled: serverCheckState !== "checking" && newLoginServer.text.trim() !== ""
+            Layout.fillWidth: true
+            onClicked: {
+              serverCheckState = "checking"
+              if (mainInstance) mainInstance.checkServer(newLoginServer.text.trim())
+            }
+
+            property string serverCheckState: ""
+
+            Connections {
+              target: mainInstance
+              function onServerCheckResult(status, httpCode, server) {
+                testServerBtn.serverCheckState = status === "ok" ? "ok" : "fail"
+                if (status === "ok") {
+                  ToastService.showNotice("Server OK", server + " (HTTP " + httpCode + ")", "circle-check")
+                } else {
+                  ToastService.showNotice("Server Unreachable", server + " (HTTP " + httpCode + ")", "circle-x")
+                }
+              }
+            }
+          }
         }
 
         NTextInput {
@@ -811,5 +962,6 @@ Item {
         }
       }
     }
+
   }
 }
