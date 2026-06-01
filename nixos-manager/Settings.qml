@@ -70,9 +70,16 @@ ColumnLayout {
   }
 
   // Mutate in-place without reassigning the array — prevents Repeater rebuild
+  // Debounced to avoid settings version churn stealing focus from panel
+  Timer {
+    id: remoteSaveTimer
+    interval: 500
+    onTriggered: root.saveSettings()
+  }
+
   function updateRemoteField(idx, field, value) {
     editRemoteRepos[idx][field] = value
-    saveSettings()
+    remoteSaveTimer.restart()
   }
 
   // Sync remotes script
