@@ -42,7 +42,7 @@ Item {
   property int connectedCount: 0
   property int totalCount: 0
   property bool isRefreshing: false
-  property bool hasAutoStarted: false
+  property bool _autoStartComplete: false
 
   readonly property string _pluginDir: {
     var url = Qt.resolvedUrl(".").toString()
@@ -195,6 +195,7 @@ Item {
         return
       }
     }
+    root._autoStartComplete = true
   }
 
   function dynNameFromSocket(socket) {
@@ -402,8 +403,7 @@ Item {
         root.totalCount = newInstances.length
         root.anyConnected = connected > 0
 
-        if (!root.hasAutoStarted) {
-          root.hasAutoStarted = true
+        if (!root._autoStartComplete) {
           root.autoStartManagedConnections()
         }
       } catch (e) {

@@ -55,6 +55,7 @@ Item {
   property real dragOffsetY: 0
   property real draggedItemHeight: 0
   readonly property int dragThreshold: 8
+  property var _preDragCollapsedState: ({})
 
   function commitReorder(fromIndex, toIndex) {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
@@ -68,6 +69,20 @@ Item {
     }
     _orderVersion++
     contentPreferredHeight = _calcHeight()
+  }
+
+  function _endDrag() {
+    if (root.dragActive) {
+      root.commitReorder(root.dragSourceIndex, root.dragTargetIndex)
+      root.collapsedInstances = Object.assign({}, root._preDragCollapsedState)
+      root._preDragCollapsedState = {}
+      root.collapseVersion++
+      root.contentPreferredHeight = root._calcHeight()
+    }
+    root.dragActive = false
+    root.dragSourceIndex = -1
+    root.dragTargetIndex = -1
+    root.dragOffsetY = 0
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
@@ -553,18 +568,33 @@ Item {
 
                     onPositionChanged: function(mouse) {
                       if (root.dragSourceIndex < 0) return
+                      if (!(mouse.buttons & Qt.LeftButton)) {
+                        root._endDrag()
+                        headerMouse.didDrag = false
+                        return
+                      }
                       var posY = mapToItem(instanceColumn, 0, mouse.y).y
                       var offset = posY - root.dragStartY
                       if (!root.dragActive) {
                         if (Math.abs(offset) > root.dragThreshold) {
                           root.dragActive = true
                           headerMouse.didDrag = true
+                          root._preDragCollapsedState = Object.assign({}, root.collapsedInstances)
+                          var allCollapsed = {}
+                          for (var k = 0; k < root.processedInstances.length; k++) {
+                            allCollapsed[root.processedInstances[k].name] = true
+                          }
+                          root.collapsedInstances = allCollapsed
+                          root.collapseVersion++
+                          root.draggedItemHeight = instanceDelegate.height
                         }
                         return
                       }
-                      root.dragOffsetY = offset
                       var step = root.draggedItemHeight + instanceColumn.spacing
-                      var steps = Math.round(offset / step)
+                      var maxDown = (root.processedInstances.length - 1 - root.dragSourceIndex) * step
+                      var maxUp = root.dragSourceIndex * step
+                      root.dragOffsetY = Math.max(-maxUp, Math.min(maxDown, offset))
+                      var steps = Math.round(root.dragOffsetY / step)
                       root.dragTargetIndex = Math.max(0, Math.min(
                         root.processedInstances.length - 1,
                         root.dragSourceIndex + steps
@@ -572,19 +602,18 @@ Item {
                     }
 
                     onReleased: function(mouse) {
-                      if (root.dragActive) {
-                        root.commitReorder(root.dragSourceIndex, root.dragTargetIndex)
-                      }
-                      var wasDrag = headerMouse.didDrag
-                      root.dragActive = false
-                      root.dragSourceIndex = -1
-                      root.dragTargetIndex = -1
-                      root.dragOffsetY = 0
+                      var wasDrag = root.dragActive
+                      root._endDrag()
                       headerMouse.didDrag = false
 
                       if (!wasDrag && mouse.button === Qt.LeftButton) {
                         root.toggleCollapsed(instanceDelegate.inst.name)
                       }
+                    }
+
+                    onCanceled: {
+                      root._endDrag()
+                      headerMouse.didDrag = false
                     }
 
                     onClicked: function(mouse) {
