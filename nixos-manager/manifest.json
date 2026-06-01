@@ -10,7 +10,8 @@
   "entryPoints": {
     "main": "Main.qml",
     "barWidget": "BarWidget.qml",
-    "panel": "Panel.qml"
+    "panel": "Panel.qml",
+    "settings": "Settings.qml"
   },
   "dependencies": {
     "plugins": []
@@ -19,7 +20,9 @@
     "defaultSettings": {
       "flakeDir": "~/nixos-config",
       "refreshInterval": 60000,
-      "terminalCommand": "kitty"
+      "terminalCommand": "kitty",
+      "autoFetch": true,
+      "remoteRepos": []
     }
   }
 }

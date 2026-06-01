@@ -23,11 +23,15 @@ Item {
   property string flakeDir: pluginApi?.pluginSettings?.flakeDir ?? "~/nixos-config"
   property int refreshInterval: pluginApi?.pluginSettings?.refreshInterval ?? 60000
   property string terminalCommand: pluginApi?.pluginSettings?.terminalCommand ?? "kitty"
+  property bool autoFetch: pluginApi?.pluginSettings?.autoFetch ?? true
+  property var remoteRepos: pluginApi?.pluginSettings?.remoteRepos ?? []
 
   onSettingsVersionChanged: {
     flakeDir = pluginApi?.pluginSettings?.flakeDir ?? "~/nixos-config"
     refreshInterval = pluginApi?.pluginSettings?.refreshInterval ?? 60000
     terminalCommand = pluginApi?.pluginSettings?.terminalCommand ?? "kitty"
+    autoFetch = pluginApi?.pluginSettings?.autoFetch ?? true
+    remoteRepos = pluginApi?.pluginSettings?.remoteRepos ?? []
     updateTimer.interval = refreshInterval
     queryStatus()
   }
@@ -66,7 +70,7 @@ Item {
 
   function queryStatus() {
     root.isRefreshing = true
-    queryProcess.command = ["bash", _queryScript, flakeDir]
+    queryProcess.command = ["bash", _queryScript, flakeDir, autoFetch ? "1" : "0"]
     queryProcess.running = true
   }
 

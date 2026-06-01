@@ -7,6 +7,7 @@ set -euo pipefail
 
 FLAKE_DIR="${1:-$HOME/nixos-config}"
 FLAKE_DIR="${FLAKE_DIR/#\~/$HOME}"
+AUTO_FETCH="${2:-1}"
 
 # ── System info (no sudo) ─────────────────────────────────────────
 CURRENT_GEN=$(readlink /nix/var/nix/profiles/system 2>/dev/null | grep -oP 'system-\K\d+') || CURRENT_GEN="?"
@@ -42,7 +43,9 @@ if [ -d "$FLAKE_DIR/.git" ]; then
   fi
 
   # Fetch remote (quick, for behind detection)
-  git fetch --quiet 2>/dev/null || true
+  if [ "$AUTO_FETCH" = "1" ]; then
+    git fetch --quiet 2>/dev/null || true
+  fi
   UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
   if [ -n "$UPSTREAM" ]; then
     GIT_AHEAD=$(git rev-list --count "$UPSTREAM..HEAD" 2>/dev/null || echo 0)
