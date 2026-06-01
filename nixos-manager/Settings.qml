@@ -28,7 +28,7 @@ ColumnLayout {
   onPluginApiChanged: loadFromSettings()
   Component.onCompleted: {
     loadFromSettings()
-    if (pluginApi) pluginApi.closePanel()
+    if (pluginApi && pluginApi.panelOpenScreen) pluginApi.closePanel(pluginApi.panelOpenScreen)
   }
 
   function loadFromSettings() {
