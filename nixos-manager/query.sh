@@ -54,6 +54,28 @@ if [ -d "$FLAKE_DIR/.git" ]; then
 
   GIT_LAST_COMMIT=$(git log -1 --format="%h" 2>/dev/null || echo "")
   GIT_LAST_MSG=$(git log -1 --format="%s" 2>/dev/null || echo "")
+
+  # Detect pull conflict: dirty files that overlap with incoming remote changes
+  GIT_PULL_CONFLICT=false
+  if [ "$GIT_DIRTY" = "true" ] && [ "$GIT_BEHIND" -gt 0 ] && [ -n "$UPSTREAM" ]; then
+    LOCAL_FILES=$(echo "$DIRTY_FILES" | awk '{print $2}' | sort)
+    REMOTE_FILES=$(git diff --name-only "HEAD..$UPSTREAM" 2>/dev/null | sort)
+    OVERLAP=$(comm -12 <(echo "$LOCAL_FILES") <(echo "$REMOTE_FILES"))
+    if [ -n "$OVERLAP" ]; then
+      GIT_PULL_CONFLICT=true
+    fi
+  fi
+fi
+
+# ── GC estimate (fast — no actual deletion) ──────────────────────
+GC_DEAD=$(nix-store --gc --print-dead 2>/dev/null | grep '^/nix/store' || true)
+if [ -n "$GC_DEAD" ]; then
+  GC_PATHS=$(echo "$GC_DEAD" | wc -l)
+  GC_BYTES=$(echo "$GC_DEAD" | xargs -r nix-store -q --size 2>/dev/null | awk '{sum+=$1} END {print sum+0}' || echo 0)
+  GC_FREED=$(awk "BEGIN {b=${GC_BYTES:-0}; if(b>=1073741824) printf \"%.1f GiB\",b/1073741824; else if(b>=1048576) printf \"%.1f MiB\",b/1048576; else if(b>=1024) printf \"%.1f KiB\",b/1024; else printf \"0 B\"}")
+else
+  GC_PATHS=0
+  GC_FREED="0 B"
 fi
 
 # ── Output JSON ───────────────────────────────────────────────────
@@ -64,6 +86,8 @@ export _QS_AHEAD="$GIT_AHEAD" _QS_BEHIND="$GIT_BEHIND"
 export _QS_LAST_COMMIT="$GIT_LAST_COMMIT" _QS_LAST_MSG="$GIT_LAST_MSG"
 export _QS_UNTRACKED="$GIT_UNTRACKED"
 export _QS_CHANGED_RAW="$DIRTY_FILES"
+export _QS_PULL_CONFLICT="${GIT_PULL_CONFLICT:-false}"
+export _QS_GC_FREED="$GC_FREED" _QS_GC_PATHS="$GC_PATHS"
 
 python3 -c "
 import json, os
@@ -84,6 +108,10 @@ print(json.dumps({
         'kernel': os.environ['_QS_KERNEL'],
         'genCount': os.environ['_QS_GEN_COUNT']
     },
+    'gc': {
+        'storeFreed': os.environ['_QS_GC_FREED'],
+        'pathCount': int(os.environ['_QS_GC_PATHS'])
+    },
     'repo': {
         'branch': os.environ['_QS_BRANCH'],
         'dirty': os.environ['_QS_DIRTY'] == 'true',
@@ -93,6 +121,7 @@ print(json.dumps({
         'lastCommit': os.environ['_QS_LAST_COMMIT'],
         'lastMsg': os.environ['_QS_LAST_MSG'],
         'untrackedCount': int(os.environ['_QS_UNTRACKED']),
+        'pullConflict': os.environ.get('_QS_PULL_CONFLICT', 'false') == 'true',
         'changedFiles': changed_files
     }
 }))

@@ -118,6 +118,37 @@ case "$ACTION" in
     echo "Pull complete."
     ;;
 
+  git-pull-stash)
+    cd "$FLAKE_DIR"
+    echo "Stashing local changes..."
+    git stash 2>&1
+    echo "Pulling..."
+    if git pull --rebase 2>&1; then
+      echo "Popping stash..."
+      if git stash pop 2>&1; then
+        echo "Pull complete — local changes reapplied."
+      else
+        echo ""
+        echo "⚠ Merge conflict during stash pop."
+        echo "Your changes are still in the stash. Resolve conflicts, then run: git stash drop"
+      fi
+    else
+      echo ""
+      echo "⚠ Pull failed. Restoring stash..."
+      git stash pop 2>&1
+    fi
+    ;;
+
+  git-pull-discard)
+    cd "$FLAKE_DIR"
+    echo "Discarding local changes..."
+    git checkout -- . 2>&1
+    git clean -fd 2>&1
+    echo "Pulling..."
+    git pull --rebase 2>&1
+    echo "Pull complete — local changes discarded."
+    ;;
+
   git-push)
     cd "$FLAKE_DIR"
     git push 2>&1

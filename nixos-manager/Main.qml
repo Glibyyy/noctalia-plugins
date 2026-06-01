@@ -48,6 +48,7 @@ Item {
   property bool isDiffLoading: false
   property bool showDiff: false
   property bool showFileList: false
+  property var gcEstimate: null
 
   readonly property string _pluginDir: {
     var url = Qt.resolvedUrl(".").toString()
@@ -137,6 +138,7 @@ Item {
     root.diffTitle = ""
   }
 
+
   function ansiToHtml(text) {
     text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     var spanOpen = 0
@@ -192,6 +194,7 @@ Item {
         var data = JSON.parse(output)
         root.systemInfo = data.system || null
         root.repoInfo = data.repo || null
+        root.gcEstimate = data.gc || null
       } catch (e) {
         Logger.e("NixOSManager", "Parse error: " + e)
       }

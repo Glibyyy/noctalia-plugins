@@ -427,12 +427,71 @@ Item {
           // Pull/Push buttons
           NButton {
             Layout.fillWidth: true
-            visible: root.showNormal && (root.repoInfo?.behind ?? 0) > 0
+            visible: root.showNormal && (root.repoInfo?.behind ?? 0) > 0 && !(root.repoInfo?.pullConflict ?? false)
             text: "Pull " + (root.repoInfo?.behind ?? 0) + " commit(s)"
             icon: "git-pull-request"
             enabled: !root.isRunning
             onClicked: {
               if (mainInstance) mainInstance.runActionSilent("git-pull")
+            }
+          }
+
+          // Conflict pull — local changes overlap with incoming remote changes
+          ColumnLayout {
+            Layout.fillWidth: true
+            visible: root.showNormal && (root.repoInfo?.pullConflict ?? false)
+            spacing: Style.marginS
+
+            Rectangle {
+              Layout.fillWidth: true
+              implicitHeight: conflictWarning.implicitHeight + Style.marginS * 2
+              radius: Style.radiusS
+              color: Qt.alpha("#F59E0B", 0.15)
+
+              RowLayout {
+                id: conflictWarning
+                anchors.fill: parent
+                anchors.margins: Style.marginS
+                spacing: Style.marginS
+
+                NIcon {
+                  icon: "alert-triangle"
+                  pointSize: Style.fontSizeS
+                  color: "#F59E0B"
+                }
+
+                NText {
+                  text: (root.repoInfo?.behind ?? 0) + " behind — local changes conflict"
+                  pointSize: Style.fontSizeXS
+                  color: "#F59E0B"
+                  Layout.fillWidth: true
+                }
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: Style.marginS
+
+              NButton {
+                Layout.fillWidth: true
+                text: "Stash & Pull"
+                icon: "git-pull-request"
+                enabled: !root.isRunning
+                onClicked: {
+                  if (mainInstance) mainInstance.runActionSilent("git-pull-stash")
+                }
+              }
+
+              NButton {
+                Layout.fillWidth: true
+                text: "Discard & Pull"
+                icon: "trash"
+                enabled: !root.isRunning
+                onClicked: {
+                  if (mainInstance) mainInstance.runActionSilent("git-pull-discard")
+                }
+              }
             }
           }
 
@@ -525,12 +584,26 @@ Item {
           Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.mOnSurface, 0.06); visible: root.showNormal }
 
           // ── Garbage Collection ───────────────────────
-          NText {
+          RowLayout {
+            Layout.fillWidth: true
             visible: root.showNormal
-            text: "Garbage Collection"
-            pointSize: Style.fontSizeS
-            font.weight: Style.fontWeightBold
-            color: Color.mPrimary
+            spacing: Style.marginS
+
+            NText {
+              text: "Garbage Collection"
+              pointSize: Style.fontSizeS
+              font.weight: Style.fontWeightBold
+              color: Color.mPrimary
+            }
+
+            Item { Layout.fillWidth: true }
+
+            NText {
+              text: mainInstance?.gcEstimate ? mainInstance.gcEstimate.storeFreed : "..."
+              pointSize: Style.fontSizeXS
+              color: Color.mOnSurfaceVariant
+              font.family: Settings.data.ui.fontFixed
+            }
           }
 
           Flow {
@@ -540,11 +613,9 @@ Item {
 
             Repeater {
               model: [
-                { label: "Full Nuke", mode: "full", icon: "trash" },
-                { label: "Keep 3", mode: "keep3", icon: "history" },
+                { label: "Nuke", mode: "full", icon: "trash" },
                 { label: "Keep 5", mode: "keep5", icon: "history" },
-                { label: "Store", mode: "store", icon: "database" },
-                { label: "Dry", mode: "dry", icon: "eye" }
+                { label: "Store", mode: "store", icon: "database" }
               ]
 
               delegate: NButton {
