@@ -22,7 +22,9 @@
       "refreshInterval": 60000,
       "terminalCommand": "kitty",
       "autoFetch": true,
-      "remoteRepos": []
+      "remoteRepos": [
+        { "name": "origin", "url": "https://github.com/Glibyyy/nix-config" }
+      ]
     }
   }
 }
