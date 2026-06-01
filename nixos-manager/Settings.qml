@@ -69,11 +69,9 @@ ColumnLayout {
     saveSettings()
   }
 
-  function commitRemoteRepo(idx, name, url) {
-    var r = JSON.parse(JSON.stringify(editRemoteRepos))
-    r[idx].name = name
-    r[idx].url = url
-    editRemoteRepos = r
+  // Mutate in-place without reassigning the array — prevents Repeater rebuild
+  function updateRemoteField(idx, field, value) {
+    editRemoteRepos[idx][field] = value
     saveSettings()
   }
 
@@ -189,40 +187,24 @@ ColumnLayout {
       readonly property int remoteIdx: index
       readonly property var remoteData: modelData
 
-      // Local edit state — only pushed to model on focus loss
-      property string localName: remoteData.name || ""
-      property string localUrl: remoteData.url || ""
-
-      function commitIfChanged() {
-        if (localName !== (remoteData.name || "") || localUrl !== (remoteData.url || "")) {
-          root.commitRemoteRepo(remoteIdx, localName, localUrl)
-        }
-      }
-
       RowLayout {
         Layout.fillWidth: true
         spacing: Style.marginS
 
         NTextInput {
-          id: nameInput
           Layout.preferredWidth: 120
           label: "Name"
           placeholderText: "upstream"
-          text: remoteDelegate.localName
-          onTextChanged: remoteDelegate.localName = text
-          onActiveFocusChanged: if (!activeFocus) remoteDelegate.commitIfChanged()
-          onAccepted: remoteDelegate.commitIfChanged()
+          text: remoteDelegate.remoteData.name || ""
+          onTextChanged: root.updateRemoteField(remoteDelegate.remoteIdx, "name", text)
         }
 
         NTextInput {
-          id: urlInput
           Layout.fillWidth: true
           label: "URL"
           placeholderText: "https://github.com/user/repo"
-          text: remoteDelegate.localUrl
-          onTextChanged: remoteDelegate.localUrl = text
-          onActiveFocusChanged: if (!activeFocus) remoteDelegate.commitIfChanged()
-          onAccepted: remoteDelegate.commitIfChanged()
+          text: remoteDelegate.remoteData.url || ""
+          onTextChanged: root.updateRemoteField(remoteDelegate.remoteIdx, "url", text)
         }
 
         Rectangle {
