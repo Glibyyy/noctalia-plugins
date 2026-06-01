@@ -26,7 +26,10 @@ ColumnLayout {
   property var editRemoteRepos: []
 
   onPluginApiChanged: loadFromSettings()
-  Component.onCompleted: loadFromSettings()
+  Component.onCompleted: {
+    loadFromSettings()
+    if (pluginApi) pluginApi.closePanel()
+  }
 
   function loadFromSettings() {
     if (!pluginApi) return
