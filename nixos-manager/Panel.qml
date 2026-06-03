@@ -610,6 +610,15 @@ Item {
               color: Color.mOnSurfaceVariant
               font.family: Settings.data.ui.fontFixed
             }
+
+            NText {
+              visible: (mainInstance?.gcEstimate?.pathCount ?? 0) > 0
+              text: mainInstance?.gcEstimate?.storeFreed ?? ""
+              pointSize: Style.fontSizeXS
+              font.weight: Style.fontWeightMedium
+              color: Color.mTertiary
+              font.family: Settings.data.ui.fontFixed
+            }
           }
 
           Flow {
