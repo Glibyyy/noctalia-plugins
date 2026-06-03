@@ -599,8 +599,14 @@ Item {
             Item { Layout.fillWidth: true }
 
             NText {
-              text: mainInstance?.gcEstimate ? mainInstance.gcEstimate.storeFreed : "..."
+              text: {
+                var bytes = root.sysInfo?.storeSize ?? 0
+                if (bytes <= 0) return ""
+                var gb = bytes / (1024 * 1024 * 1024)
+                return gb.toFixed(1) + " GB"
+              }
               pointSize: Style.fontSizeXS
+              font.weight: Style.fontWeightMedium
               color: Color.mOnSurfaceVariant
               font.family: Settings.data.ui.fontFixed
             }
