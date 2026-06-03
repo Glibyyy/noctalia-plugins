@@ -74,7 +74,7 @@ GC_DEAD=$(nix-store --gc --print-dead 2>/dev/null | grep '^/nix/store' || true)
 if [ -n "$GC_DEAD" ]; then
   GC_PATHS=$(echo "$GC_DEAD" | wc -l)
   GC_BYTES=$(echo "$GC_DEAD" | xargs -r nix-store -q --size 2>/dev/null | awk '{sum+=$1} END {print sum+0}' || echo 0)
-  GC_FREED=$(awk "BEGIN {b=${GC_BYTES:-0}; if(b>=1073741824) printf \"%.1f GiB\",b/1073741824; else if(b>=1048576) printf \"%.1f MiB\",b/1048576; else if(b>=1024) printf \"%.1f KiB\",b/1024; else printf \"0 B\"}")
+  GC_FREED=$(awk "BEGIN {b=${GC_BYTES:-0}; if(b>=1073741824) printf \"%.1f GB\",b/1073741824; else if(b>=1048576) printf \"%.0f MB\",b/1048576; else printf \"\"}")
 else
   GC_PATHS=0
   GC_FREED="0 B"
