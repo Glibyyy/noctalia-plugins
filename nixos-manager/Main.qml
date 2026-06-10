@@ -48,6 +48,7 @@ Item {
   property bool isDiffLoading: false
   property bool showDiff: false
   property bool showFileList: false
+  property bool showBranchPicker: false
   property var gcEstimate: null
 
   readonly property string _pluginDir: {
@@ -136,6 +137,30 @@ Item {
     root.showDiff = false
     root.diffOutput = ""
     root.diffTitle = ""
+  }
+
+  function openBranchPicker() {
+    root.showBranchPicker = true
+    root.showDiff = false
+    root.showFileList = false
+  }
+
+  function closeBranchPicker() {
+    root.showBranchPicker = false
+  }
+
+  function switchBranch(branchName) {
+    root.showBranchPicker = false
+    root.runActionSilent("git-branch-switch", [branchName])
+  }
+
+  function createBranch(branchName) {
+    root.showBranchPicker = false
+    root.runActionSilent("git-branch-create", [branchName])
+  }
+
+  function deleteBranch(branchName) {
+    root.runActionSilent("git-branch-delete", [branchName])
   }
 
 

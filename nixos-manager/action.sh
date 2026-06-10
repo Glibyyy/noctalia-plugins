@@ -228,6 +228,32 @@ case "$ACTION" in
     fi
     ;;
 
+  git-branch-switch)
+    BRANCH="${1:?branch name required}"
+    cd "$FLAKE_DIR"
+    DIRTY=$(git status --porcelain 2>/dev/null || echo "")
+    if [ -n "$DIRTY" ]; then
+      echo "Stashing $(echo "$DIRTY" | wc -l) changed file(s)..."
+      git stash push -m "nixos-manager: auto-stash before switching to $BRANCH" 2>&1
+    fi
+    git checkout "$BRANCH" 2>&1
+    echo "Switched to $BRANCH"
+    ;;
+
+  git-branch-create)
+    BRANCH="${1:?branch name required}"
+    cd "$FLAKE_DIR"
+    git checkout -b "$BRANCH" 2>&1
+    echo "Created and switched to $BRANCH"
+    ;;
+
+  git-branch-delete)
+    BRANCH="${1:?branch name required}"
+    cd "$FLAKE_DIR"
+    git branch -d "$BRANCH" 2>&1
+    echo "Deleted $BRANCH"
+    ;;
+
   *)
     echo "Unknown action: $ACTION" >&2
     exit 1

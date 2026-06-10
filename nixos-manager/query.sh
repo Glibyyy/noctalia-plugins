@@ -57,6 +57,9 @@ if [ -d "$FLAKE_DIR/.git" ]; then
   GIT_LAST_COMMIT=$(git log -1 --format="%h" 2>/dev/null || echo "")
   GIT_LAST_MSG=$(git log -1 --format="%s" 2>/dev/null || echo "")
 
+  # Branch list (local only)
+  GIT_BRANCHES=$(git branch --format='%(refname:short)' 2>/dev/null || echo "")
+
   # Detect pull conflict: dirty files that overlap with incoming remote changes
   GIT_PULL_CONFLICT=false
   if [ "$GIT_DIRTY" = "true" ] && [ "$GIT_BEHIND" -gt 0 ] && [ -n "$UPSTREAM" ]; then
@@ -88,6 +91,7 @@ export _QS_AHEAD="$GIT_AHEAD" _QS_BEHIND="$GIT_BEHIND"
 export _QS_LAST_COMMIT="$GIT_LAST_COMMIT" _QS_LAST_MSG="$GIT_LAST_MSG"
 export _QS_UNTRACKED="$GIT_UNTRACKED"
 export _QS_CHANGED_RAW="$DIRTY_FILES"
+export _QS_BRANCHES="$GIT_BRANCHES"
 export _QS_PULL_CONFLICT="${GIT_PULL_CONFLICT:-false}"
 export _QS_GC_FREED="$GC_FREED" _QS_GC_PATHS="$GC_PATHS"
 
@@ -101,6 +105,9 @@ for line in changed_raw.split('\n'):
     status = line[:2].strip()
     path = line[3:]
     changed_files.append({'status': status, 'file': path})
+
+branches_raw = os.environ.get('_QS_BRANCHES', '')
+branches = [b.strip() for b in branches_raw.split('\n') if b.strip()]
 
 print(json.dumps({
     'system': {
@@ -125,7 +132,8 @@ print(json.dumps({
         'lastMsg': os.environ['_QS_LAST_MSG'],
         'untrackedCount': int(os.environ['_QS_UNTRACKED']),
         'pullConflict': os.environ.get('_QS_PULL_CONFLICT', 'false') == 'true',
-        'changedFiles': changed_files
+        'changedFiles': changed_files,
+        'branches': branches
     }
 }))
 "

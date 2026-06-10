@@ -19,12 +19,13 @@ Item {
   readonly property bool isRunning: mainInstance?.isRunningAction ?? false
   readonly property bool showDiff: mainInstance?.showDiff ?? false
   readonly property bool showFileList: mainInstance?.showFileList ?? false
-  readonly property bool showNormal: !root.showDiff && !root.showFileList
+  readonly property bool showBranchPicker: mainInstance?.showBranchPicker ?? false
+  readonly property bool showNormal: !root.showDiff && !root.showFileList && !root.showBranchPicker
 
   readonly property bool panelReady: pluginApi !== null && mainInstance !== null
 
   property real contentPreferredWidth: panelReady ? ((showDiff || showFileList) ? 520 : 400) * Style.uiScaleRatio : 0
-  property real contentPreferredHeight: panelReady ? ((showDiff || showFileList) ? 550 : 480) * Style.uiScaleRatio : 0
+  property real contentPreferredHeight: panelReady ? ((showDiff || showFileList || showBranchPicker) ? 550 : 480) * Style.uiScaleRatio : 0
 
   property string commitMsg: ""
 
@@ -122,14 +123,28 @@ Item {
             NIcon {
               icon: "git-branch"
               pointSize: Style.fontSizeS
-              color: Color.mOnSurfaceVariant
+              color: branchNameMouse.containsMouse ? Color.mPrimary : Color.mOnSurfaceVariant
             }
 
             NText {
               text: (root.repoInfo?.branch ?? "?") + " @ " + (root.repoInfo?.lastCommit ?? "?")
               pointSize: Style.fontSizeXS
-              color: Color.mOnSurfaceVariant
+              color: branchNameMouse.containsMouse ? Color.mPrimary : Color.mOnSurfaceVariant
               font.family: Settings.data.ui.fontFixed
+
+              MouseArea {
+                id: branchNameMouse
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (mainInstance) {
+                    if (root.showBranchPicker) mainInstance.closeBranchPicker()
+                    else mainInstance.openBranchPicker()
+                  }
+                }
+              }
             }
 
             Item { Layout.fillWidth: true }
@@ -332,6 +347,157 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                       if (mainInstance) mainInstance.openFileDiff(modelData.file)
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // ══════════════════════════════════════════
+          // BRANCH PICKER — replaces bottom section
+          // ══════════════════════════════════════════
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: Qt.alpha(Color.mPrimary, 0.3)
+            visible: root.showBranchPicker
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.marginS
+            visible: root.showBranchPicker
+
+            NText {
+              text: "Branches"
+              pointSize: Style.fontSizeS
+              font.weight: Style.fontWeightBold
+              color: Color.mPrimary
+              Layout.fillWidth: true
+            }
+
+            NText {
+              text: "✕ close"
+              pointSize: Style.fontSizeXS
+              color: closeBranchMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
+
+              MouseArea {
+                id: closeBranchMouse
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (mainInstance) mainInstance.closeBranchPicker()
+                }
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.marginS
+            visible: root.showBranchPicker
+
+            NTextInput {
+              id: newBranchInput
+              Layout.fillWidth: true
+              placeholderText: "New branch name..."
+            }
+
+            NButton {
+              text: "Create"
+              icon: "git-branch"
+              enabled: !root.isRunning && newBranchInput.text.trim() !== ""
+              onClicked: {
+                if (mainInstance) {
+                  mainInstance.createBranch(newBranchInput.text.trim())
+                  newBranchInput.text = ""
+                }
+              }
+            }
+          }
+
+          Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.showBranchPicker
+            clip: true
+            contentHeight: branchListColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            ColumnLayout {
+              id: branchListColumn
+              width: parent.width
+              spacing: 2
+
+              Repeater {
+                model: root.repoInfo?.branches ?? []
+
+                delegate: Rectangle {
+                  Layout.fillWidth: true
+                  implicitHeight: branchRow.implicitHeight + 8
+                  radius: Style.radiusS
+                  color: {
+                    var isCurrent = modelData === (root.repoInfo?.branch ?? "")
+                    if (isCurrent) return Qt.alpha(Color.mPrimary, 0.12)
+                    return branchMouse.containsMouse ? Qt.alpha(Color.mOnSurface, 0.06) : "transparent"
+                  }
+
+                  MouseArea {
+                    id: branchMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: modelData !== (root.repoInfo?.branch ?? "") ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: {
+                      if (modelData !== (root.repoInfo?.branch ?? "") && mainInstance) {
+                        mainInstance.switchBranch(modelData)
+                      }
+                    }
+                  }
+
+                  RowLayout {
+                    id: branchRow
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    spacing: Style.marginS
+                    z: 1
+
+                    NIcon {
+                      icon: modelData === (root.repoInfo?.branch ?? "") ? "check" : "git-branch"
+                      pointSize: Style.fontSizeXS
+                      color: modelData === (root.repoInfo?.branch ?? "") ? Color.mPrimary : Color.mOnSurfaceVariant
+                    }
+
+                    NText {
+                      text: modelData
+                      pointSize: Style.fontSizeXS
+                      color: modelData === (root.repoInfo?.branch ?? "") ? Color.mPrimary : Color.mOnSurface
+                      font.weight: modelData === (root.repoInfo?.branch ?? "") ? Style.fontWeightBold : Style.fontWeightNormal
+                      font.family: Settings.data.ui.fontFixed
+                      Layout.fillWidth: true
+                    }
+
+                    NIcon {
+                      visible: modelData !== (root.repoInfo?.branch ?? "") && branchMouse.containsMouse
+                      icon: "trash"
+                      pointSize: Style.fontSizeXS
+                      color: deleteBranchMouse.containsMouse ? Color.mError : Color.mOnSurfaceVariant
+
+                      MouseArea {
+                        id: deleteBranchMouse
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                          if (mainInstance) mainInstance.deleteBranch(modelData)
+                        }
+                      }
                     }
                   }
                 }
